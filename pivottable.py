@@ -1,106 +1,143 @@
 import pandas as pd
 import webbrowser
 import os
+import numpy as np
+from matplotlib import colors as mcolors
+from datetime import datetime, timedelta
 
 # Load the matches_90_days.csv file
 df_90_days = pd.read_csv("matches_90_days.csv")
 
-# Create the pivot table with the specified columns and their averages
-pivot_table = pd.pivot_table(
-    df_90_days,
-    index='Player',  # Assuming 'Player' is the name of the player column
-    values=[
-        'Date', 'TotalKills', 'Deaths', 'Assists', 'KD', 'KDA',
-        'ExpectedKills', 'ExpectedDeaths', 'Score', 
-        'Dmg/KA', 'Dmg/Death', 'KD vs. EKD', 'Dmg Difference', 
-        'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Accuracy', 
-        'DamageDone', 'DamageTaken', 'ShotsFired', 
-        'ShotsLanded', 'KillsGrenade', 'KillsHeadshot', 
-        'KillsPower', 'KillsMelee', 'AssistsCallout', 'Medals'
-    ],
-    aggfunc={
-        'Date': 'count',  # Count for Matches
-        'TotalKills': 'mean',  # Average for Kills
-        'Deaths': 'mean',  # Average for Deaths
-        'Assists': 'mean',  # Average for Assists
-        'KD': 'mean',  # Average for KD
-        'KDA': 'mean',  # Average for KDA
-        'ExpectedKills': 'mean',
-        'ExpectedDeaths': 'mean',
-        'Score': 'mean',
-        'Dmg/KA': 'mean',
-        'Dmg/Death': 'mean',
-        'KD vs. EKD': 'mean',
-        'Dmg Difference': 'mean',
-        'Dmg/min (Dealt)': 'mean',
-        'Dmg/min (Taken)': 'mean',
-        'Accuracy': 'mean',
-        'DamageDone': 'mean',
-        'DamageTaken': 'mean',
-        'ShotsFired': 'mean',
-        'ShotsLanded': 'mean',
-        'KillsGrenade': 'mean',
-        'KillsHeadshot': 'mean',
-        'KillsPower': 'mean',
-        'KillsMelee': 'mean',
-        'AssistsCallout': 'mean',
-        'Medals': 'mean'
-    },
-    fill_value=0  # Fill missing values with 0
-)
+# Remove 'UniqueID' from numeric_columns to avoid incorrect aggregation
+numeric_columns = [
+    'TotalKills', 'Deaths', 'Assists', 'KD', 'KDA',
+    'ExpectedKills', 'ExpectedDeaths', 'Score',
+    'Dmg/KA', 'Dmg/Death', 'KD vs. EKD', 'Dmg Difference',
+    'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Accuracy',
+    'DamageDone', 'DamageTaken', 'ShotsFired',
+    'ShotsLanded', 'KillsGrenade', 'KillsHeadshot',
+    'KillsPower', 'KillsMelee', 'AssistsCallout', 'Medals', 'Win'
+]
 
-# Sort the pivot table by KDA in descending order
-pivot_table.sort_values(by='KDA', ascending=False, inplace=True)
+df_90_days[numeric_columns] = df_90_days[numeric_columns].apply(pd.to_numeric, errors='coerce')
+df_90_days['Date'] = pd.to_datetime(df_90_days['Date'], errors='coerce')
+df_90_days.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-# Format the pivot table
-for column in pivot_table.columns:
-    if column in ['KD', 'KDA']:
-        pivot_table[column] = pivot_table[column].round(2)
-    elif column == 'KillsGrenade':
-        pivot_table[column] = pivot_table[column].round(1)
-    else:
-        pivot_table[column] = pivot_table[column].round(0)
+# Create a mapping of old column names to new column names
+new_column_names = {
+    'UniqueID': 'Matches',
+    'TotalKills': 'Kills',
+    'DamageDone': 'Damage Done',
+    'DamageTaken': 'Damage Taken',
+    'ShotsFired': 'Shots Fired',
+    'ExpectedDeaths': 'Exp. Deaths',
+    'ExpectedKills': 'Exp. Kills',
+    'ShotsLanded': 'Shots Landed',
+    'KillsGrenade': 'Grenade Kills',
+    'KillsHeadshot': 'Headshot Kills',
+    'KillsPower': 'Power Weapon Kills',
+    'KillsMelee': 'Melee Kills',
+    'AssistsCallout': 'Callout Assists',
+    'Win': 'Win Rate'
+}
 
-# Style the pivot table
-styled_table = pivot_table.style\
-    .set_caption("Player Performance Metrics")\
-    .highlight_max(axis=0, color='lightgreen')\
-    .highlight_min(axis=0, color='salmon')\
-    .bar(subset=['KDA', 'KD'], color=['lightblue', 'lightcoral'])\
-    .format(
-        {
-            'KDA': '{:.2f}',  # Two decimal places for KDA
-            'KD': '{:.2f}',   # Two decimal places for KD
-            'KillsGrenade': '{:.1f}',  # One decimal place for KillsGrenade
-            'ExpectedKills': '{:.0f}',  # Zero decimal places for ExpectedKills
-            'ExpectedDeaths': '{:.0f}',  # Zero decimal places for ExpectedDeaths
-            'Score': '{:.0f}',  # Zero decimal places for Score
-            'Dmg/KA': '{:.0f}',  # Zero decimal places for Dmg/KA
-            'Dmg/Death': '{:.0f}',  # Zero decimal places for Dmg/Death
-            'KD vs. EKD': '{:.0f}',  # Zero decimal places for KD vs. EKD
-            'Dmg Difference': '{:.0f}',  # Zero decimal places for Dmg Difference
-            'Dmg/min (Dealt)': '{:.0f}',  # Zero decimal places for Dmg/min (Dealt)
-            'Dmg/min (Taken)': '{:.0f}',  # Zero decimal places for Dmg/min (Taken)
-            'Accuracy': '{:.0f}',  # Zero decimal places for Accuracy
-            'DamageDone': '{:.0f}',  # Zero decimal places for DamageDone
-            'DamageTaken': '{:.0f}',  # Zero decimal places for DamageTaken
-            'ShotsFired': '{:.0f}',  # Zero decimal places for ShotsFired
-            'ShotsLanded': '{:.0f}',  # Zero decimal places for ShotsLanded
-            'KillsHeadshot': '{:.0f}',  # Zero decimal places for KillsHeadshot
-            'KillsPower': '{:.0f}',  # Zero decimal places for KillsPower
-            'KillsMelee': '{:.0f}',  # Zero decimal places for KillsMelee
-            'AssistsCallout': '{:.0f}',  # Zero decimal places for AssistsCallout
-            'Medals': '{:.0f}'  # Zero decimal places for Medals
-        }, na_rep='--'  # Move na_rep here
-    )\
-    .set_table_attributes('style="width: 100%; border-collapse: collapse;"')\
-    .set_properties(**{'border': '1px solid black', 'padding': '5px'})\
-    .set_properties(subset=['KDA', 'KD'], **{'text-align': 'right'})\
-    .set_properties(subset=['KillsGrenade'], **{'text-align': 'center'})
+desired_column_order = [
+    'Matches', 'Kills', 'Deaths', 'Assists', 'KD', 'KDA',
+    'Exp. Kills', 'Exp. Deaths', 'Damage Done', 'Damage Taken', 'Dmg/KA', 'Dmg/Death', 
+    'Dmg Difference', 'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Shots Fired', 'Shots Landed',
+    'Grenade Kills', 'Headshot Kills', 'Power Weapon Kills', 'Melee Kills', 
+    'Callout Assists', 'Accuracy', 'Score', 'KD vs. EKD', 'Medals','Win Rate'
+]
 
-# Save the styled pivot table to an HTML file
-html_file_path = "kda_pivot_table.html"
-styled_table.to_html(html_file_path, render_links=True)
 
-# Open the HTML file in the default web browser
-webbrowser.open('file://' + os.path.realpath(html_file_path))
+# Time windows for pivot tables (e.g. 90, 30, 15, 7, 1 days)
+time_windows = {
+    'All Time': df_90_days,
+    'Last 30 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=30))],
+    'Last 15 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=15))],
+    'Last 7 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=7))],
+    'Last 1 Day': df_90_days[
+        (df_90_days['Date'] >= (datetime.now() - timedelta(days=1)).replace(hour=5, minute=0, second=0)) & 
+        (df_90_days['Date'] < datetime.now().replace(hour=5, minute=0, second=0))
+    ]
+}
+
+# Function to create pivot tables
+def create_pivot_table(df, label):
+    pivot_table = pd.pivot_table(
+        df,
+        index='Player',
+        values=numeric_columns,
+        aggfunc={col: 'mean' for col in numeric_columns},
+        fill_value=0
+    ).rename(columns=new_column_names)
+
+    # Add the count of matches (or unique matches if UniqueID is used)
+    match_count = df.groupby('Player')['UniqueID'].nunique()  # Count of unique matches
+    pivot_table['Matches'] = match_count  # Add this as a new column in the pivot table
+
+    # Sort by KDA
+    pivot_table.sort_values(by='KDA', ascending=False, inplace=True)
+
+    # Reindex columns
+    pivot_table = pivot_table.reindex(columns=desired_column_order)
+
+    # Format columns
+    for column in pivot_table.columns:
+        if column in ['KD', 'KDA', 'KD vs. EKD','Win Rate']:
+            pivot_table[column] = pivot_table[column].apply(lambda x: f"{x:.2f}")
+        elif column in ['Grenade Kills', 'Power Weapon Kills', 'Melee Kills', 'Headshot Kills', 'Kills', 'Deaths', 'Assists', 'Exp. Deaths', 'Exp. Kills']:
+            pivot_table[column] = pivot_table[column].apply(lambda x: f"{x:.1f}")
+        else:
+            pivot_table[column] = pivot_table[column].apply(lambda x: f"{int(x):d}" if x == round(x) else f"{x:.0f}")
+
+    return pivot_table
+
+# Loop through time windows to create and format pivot tables
+styled_tables = {}
+for label, df in time_windows.items():
+    print(f"{label} - Number of Matches: {df.shape[0]}")  # Check number of matches
+
+    # Check for duplicates in the DataFrame
+    print("Number of duplicate rows:", df.duplicated().sum())
+
+    pivot_table = create_pivot_table(df, label)
+
+    # Inspect the pivot table
+    print(f"{label} - Unique Players: {pivot_table.index.nunique()}")  # Check unique players
+
+    # Replace NaN values with 0 or appropriate default value
+    pivot_table.fillna(0, inplace=True)
+
+    # Ensure that only valid numeric columns are used for background gradients
+    numeric_cols = pivot_table.select_dtypes(include=['number']).columns
+
+    # Define the subsets for the background gradient
+    non_reverse_gradient_subset = numeric_cols.difference(['Damage Taken', 'Dmg/KA', 'Exp. Deaths', 'Dmg/min (Taken)'])
+    reverse_gradient_subset = ['Damage Taken', 'Dmg/KA', 'Exp. Deaths', 'Dmg/min (Taken)']
+
+    styled_table = pivot_table.style \
+        .set_caption(f"Player Performance Metrics ({label})") \
+        .set_table_styles([
+            {'selector': 'th', 'props': [('text-align', 'center'), ('font-size', '12px'), ('background-color', '#D3D3D3'), ('border', '1px solid #ccc')]},
+            {'selector': 'td', 'props': [('text-align', 'center'), ('border', '1px solid #ccc')]},
+            {'selector': 'tr:hover', 'props': [('background-color', '#f5f5f5')]},
+        ]) \
+        .background_gradient(cmap='YlGnBu', subset=non_reverse_gradient_subset) \
+        .background_gradient(cmap='YlGnBu_r', subset=reverse_gradient_subset) \
+        .set_table_attributes('style="font-family: Verdana;"')  # Set Verdana font
+
+    styled_tables[label] = styled_table
+
+# Combine the styled tables' HTML into a single string
+html_content = ""
+for label, styled_table in styled_tables.items():
+    html_content += styled_table.to_html() + "<br><br>"
+
+# Save the HTML to a file
+html_file = "player_performance_metrics.html"
+with open(html_file, "w") as file:
+    file.write(html_content)
+
+# Open the saved HTML file in the default web browser
+webbrowser.open("file://" + os.path.realpath(html_file))
