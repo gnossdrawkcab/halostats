@@ -1,4 +1,8 @@
 import os
+
+import webbrowser
+import glob
+import re
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -18,12 +22,10 @@ def run_test(test_name, input_text):
 
     # Get the directory where the script is located
     script_dir = os.path.dirname(os.path.realpath(__file__))
-
-    # Set the path to chromedriver dynamically
-    chromedriver_path = os.path.join(script_dir, 'chromedriver.exe')  # Path to the ChromeDriver in the script directory
+    chromedriver_path = os.path.join(script_dir, 'chromedriver.exe')
 
     # Set up the Chrome driver with the correct path
-    service = Service(chromedriver_path)  # Use the dynamic path for ChromeDriver
+    service = Service(chromedriver_path)
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     try:
@@ -48,13 +50,10 @@ def run_test(test_name, input_text):
             # Wait for the button to be clickable
             request_stat_button = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Request Stat Update')]")))
             request_stat_button.click()
-
         except TimeoutException:
             print("The 'Request Stat Update' button was not found. Continuing with the program.")
-
         except NoSuchElementException:
             print("The button does not exist on the page.")
-
         except Exception as e:
             print(f"An error occurred: {e}")
 
@@ -64,9 +63,17 @@ def run_test(test_name, input_text):
         driver.quit()
 
 # Function to collect player names
-def get_player_names():
+def get_player_names(existing_names=None):
     player_names = []
-    print("Enter player names (type 'done' when finished):")
+    
+    if existing_names:
+        # Ask if the user wants to use existing player names
+        use_existing = input(f"Found existing player names: {', '.join(existing_names)}. Would you like to use these? (y/n): ").strip().lower()
+        
+        if use_existing == 'y':
+            return existing_names
+
+    print("Enter new player names (type 'done' when finished):")
     
     while True:
         name = input("Enter player name: ").strip()
@@ -79,8 +86,34 @@ def get_player_names():
 
     return player_names
 
+# Function to find existing CSV files
+def find_existing_csvs():
+    current_directory = os.getcwd()
+    csv_pattern = re.compile(r'^(.*)_matches\.csv$')
+    existing_files = [f[:-11].rstrip('_') for f in os.listdir(current_directory) if csv_pattern.match(f)]
+    return existing_files
+
+# Function to download the CSV file
+def download_csv(url, file_name):
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(file_name, 'wb') as file:
+                file.write(response.content)
+            print(f"Successfully downloaded: {file_name}")
+            return True
+        else:
+            print(f"Failed to download {file_name}. Status code: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"An error occurred while downloading {file_name}: {e}")
+        return False
+
+# Check for existing CSV files
+existing_player_names = find_existing_csvs()
+
 # Collect player names
-player_names = get_player_names()
+player_names = get_player_names(existing_player_names)
 
 # Prepare the test input list based on the player names
 tests = [(name, f"{name}") for name in player_names]
@@ -96,19 +129,43 @@ urls = [f"https://leafapp.co/player/{name}/matches/csv/matches" for name in play
 # File names to save the CSVs locally
 file_names = [f"{name.lower()}_matches.csv" for name in player_names]
 
+# Flag to check if any download failed
+download_failed = False
+
+# Download the CSV files
+for url, file_name in zip(urls, file_names):
+    if not download_csv(url, file_name):
+        download_failed = True  # Set the flag if a download fails
+
+# If the user did not want to use existing files and all downloads failed
+if player_names != existing_player_names and download_failed:
+    user_response = input("All download attempts failed. Would you like to continue? (y/n): ").strip().lower()
+    
+    if user_response != 'y':
+        print("Exiting the program.")
+        exit(1)  # Exit
+
+# If some downloads failed, notify the user
+if download_failed:
+    print("Some downloads failed. Please wait a while to run this script again.")
+
+# Proceed to read the files if they exist
+dataframes = []  # List to store DataFrames
+columns_to_import = [0, 1, 3, 5, 6, 10, 11, 24, 29] + list(range(30, 59))  # Columns to import (using 0-based indexing)
+
 # Columns to import (using 0-based indexing)
 columns_to_import = [0, 1, 3, 5, 6, 10, 11, 24, 29] + list(range(30, 59))
 
-# Download and save CSV files
-for url, file_name in zip(urls, file_names):
-    print(f"Downloading CSV from: {url}")
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(file_name, 'wb') as file:
-            file.write(response.content)
-        print(f"Successfully downloaded: {file_name}")
+# Proceed to read the files if they exist
+for file_name in file_names:
+    if os.path.exists(file_name):
+        try:
+            df = pd.read_csv(file_name, usecols=columns_to_import)  # Specify your columns_to_import
+            # (Additional processing on df can go here)
+        except FileNotFoundError as e:
+            print(f"Error: {e}. File may not have been downloaded successfully.")
     else:
-        print(f"Failed to download {file_name}. Status code: {response.status_code}")
+        print(f"{file_name} does not exist, skipping reading.")
 
 # List to store DataFrames
 dataframes = []
@@ -262,6 +319,14 @@ combined_df['Dmg/min (Dealt)'] = combined_df.iloc[:, 11] / combined_df.iloc[:, b
 # Add 'Dmg/s (Taken)' column (M divided by BF) at the end of the DataFrame
 combined_df['Dmg/min (Taken)'] = combined_df.iloc[:, 12] / combined_df.iloc[:, bf_index]
 
+# Move column AR (index 44) to between AO (index 42) and AP (index 43)
+combined_df.insert(41, combined_df.columns[43], combined_df.pop(combined_df.columns[43]))  # Move AR to 43
+
+# Move column BG (index 57) to between AP (index 43) and AQ (index 44)
+combined_df.insert(42, combined_df.columns[58], combined_df.pop(combined_df.columns[58]))  # Move BG to 44
+# Move column BH (index 58) to between AQ (index 44) and AR (now at index 43)
+combined_df.insert(43, combined_df.columns[59], combined_df.pop(combined_df.columns[59]))  # Move BH to 45
+
 # Save the final DataFrame into a new CSV file
 combined_df.to_csv("matches_all.csv", index=False)
 
@@ -271,3 +336,42 @@ filtered_df_90_days = combined_df[combined_df.iloc[:, 1] >= ninety_days_ago]
 
 # Save the filtered DataFrame into a new CSV file
 filtered_df_90_days.to_csv("matches_90_days.csv", index=False)
+
+# Load the matches_90_days.csv file
+df = pd.read_csv("matches_90_days.csv")
+
+# Create the pivot table with multiple aggregations
+pivot_table = pd.pivot_table(
+    df,
+    index='Player',  # Assuming "Player" is the column name for player names
+    aggfunc={
+        'Date': 'count',  # Count of matches
+        'TotalKills': 'mean',   # Average kills
+        'Deaths': 'mean',  # Average deaths
+        'Assists': 'mean', # Average assists
+        'KD': 'mean',      # Average KD (if you have this column)
+        'KDA': 'mean'      # Average KDA
+    },
+    fill_value=0  # Fill missing values with 0
+)
+
+# Rename the columns for clarity
+pivot_table.rename(columns={
+    'Date': 'Matches',
+    'TotalKills': 'Average Kills',
+    'Deaths': 'Average Deaths',
+    'Assists': 'Average Assists',
+    'KD': 'Average KD',
+    'KDA': 'Average KDA'
+}, inplace=True)
+
+# Sort the pivot table by KDA in descending order
+pivot_table.sort_values(by='Average KDA', ascending=False, inplace=True)
+
+# Save the pivot table to an HTML file
+html_file_path = "kda_pivot_table.html"
+pivot_table.to_html(html_file_path)
+
+# Open the HTML file in the default web browser
+webbrowser.open('file://' + os.path.realpath(html_file_path))
+
