@@ -181,4 +181,3 @@ with open(html_file, "w") as file:
 
 # Open the saved HTML file in the default web browser
 webbrowser.open("file://" + os.path.realpath(html_file))
-

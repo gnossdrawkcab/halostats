@@ -16,6 +16,7 @@ urls = [
 file_names = ["zaidster7_matches.csv", "octy_matches.csv", "p1n1_matches.csv", "viper18_matches.csv", "jordo_matches.csv"]
 
 # Columns to import (using names)
+
 columns_to_import = [
     'Date', 'SeasonNumber', 'Player', 'MatchId', 'Map', 'Category', 'Playlist', 'PreCsr', 'PostCsr', 'Rank', 
     'Outcome', 'Accuracy', 'DamageDone', 'DamageTaken', 'ShotsFired', 'ShotsLanded', 
