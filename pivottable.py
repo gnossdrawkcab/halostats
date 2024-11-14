@@ -1,143 +1,178 @@
 import pandas as pd
+from datetime import datetime, timedelta
 import webbrowser
 import os
 import numpy as np
-from matplotlib import colors as mcolors
-from datetime import datetime, timedelta
 
-# Load the matches_90_days.csv file
-df_90_days = pd.read_csv("matches_90_days.csv")
-
-# Remove 'UniqueID' from numeric_columns to avoid incorrect aggregation
-numeric_columns = [
-    'TotalKills', 'Deaths', 'Assists', 'KD', 'KDA',
-    'ExpectedKills', 'ExpectedDeaths', 'Score',
-    'Dmg/KA', 'Dmg/Death', 'KD vs. EKD', 'Dmg Difference',
-    'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Accuracy',
-    'DamageDone', 'DamageTaken', 'ShotsFired',
-    'ShotsLanded', 'KillsGrenade', 'KillsHeadshot',
-    'KillsPower', 'KillsMelee', 'AssistsCallout', 'Medals', 'Win'
+# Load the matches_90_days.csv file with the specified columns
+columns_to_import = [
+    'Player', 'Date', 'MatchId', 'Rank', 'Accuracy', 'Dmg Done', 'Dmg Taken',
+    'Shots Fired', 'Shots Landed', 'Shots Missed', 'KD', 'KDA', 'Kills',
+    'Melee Kills', 'Gren. Kills', 'HS Kills', 'PW Kills', 'AssistsEmp',
+    'AssistsDriver', 'Callout Assists', 'Deaths', 'Assists', 'Betrayals',
+    'Suicides', 'Max Spree', 'VehicleDestroys', 'VehicleHijacks', 'Exp Kills',
+    'Exp Deaths', 'Score', 'Perfects', 'Medals', 'Match Length (s)', 'Win',
+    'Loss', 'Draw', 'KA/D', 'Dmg/KA', 'Dmg/Death', 'EKD', 'KDvEKD',
+    'Dmg Difference', 'PreCsr0.5', 'PreCsr1', 'PreCsr8', 'PreCsr16',
+    'PreCsr31', 'PostCsr31', 'Game Yesterday or Before 5am Today',
+    'Game Today After 5am', 'Combined Players', 'Stack', 'Hour', 'PreCsr',
+    'PostCsr', 'Outcome', 'Match Length (min)', 'Dmg/min (Dealt)', 'Dmg/min (Taken)'
 ]
 
-df_90_days[numeric_columns] = df_90_days[numeric_columns].apply(pd.to_numeric, errors='coerce')
+# Load the data
+df_90_days = pd.read_csv("matches_90_days.csv", usecols=columns_to_import)
+
+# Ensure 'Date' is in datetime format
 df_90_days['Date'] = pd.to_datetime(df_90_days['Date'], errors='coerce')
+
+# Replace all 0 values in numeric columns with NaN to avoid division by zero issues
+numeric_columns = [
+    'KD', 'KDA', 'Kills', 'Deaths', 'Assists', 'KA/D', 'KDvEKD',
+    'Dmg Done', 'Dmg Taken', 'Dmg Difference', 'Dmg/KA', 'Dmg/Death',
+    'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Shots Fired', 'Shots Landed',
+    'Accuracy', 'Melee Kills', 'Gren. Kills', 'PW Kills', 'HS Kills',
+    'AssistsEmp', 'AssistsDriver', 'Score', 'Medals', 'Win'
+]
+
+# Replace 0 with NaN to avoid division by zero issues
+df_90_days[numeric_columns] = df_90_days[numeric_columns].replace(0, np.nan)
+
+# Convert columns to numeric to handle invalid calculations (set invalid to NaN)
+df_90_days[numeric_columns] = df_90_days[numeric_columns].apply(pd.to_numeric, errors='coerce')
+
+# Replace any remaining inf values with NaN
 df_90_days.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-# Create a mapping of old column names to new column names
-new_column_names = {
-    'UniqueID': 'Matches',
-    'TotalKills': 'Kills',
-    'DamageDone': 'Damage Done',
-    'DamageTaken': 'Damage Taken',
-    'ShotsFired': 'Shots Fired',
-    'ExpectedDeaths': 'Exp. Deaths',
-    'ExpectedKills': 'Exp. Kills',
-    'ShotsLanded': 'Shots Landed',
-    'KillsGrenade': 'Grenade Kills',
-    'KillsHeadshot': 'Headshot Kills',
-    'KillsPower': 'Power Weapon Kills',
-    'KillsMelee': 'Melee Kills',
-    'AssistsCallout': 'Callout Assists',
-    'Win': 'Win Rate'
-}
+# Filter DataFrames by date ranges
+now = datetime.now()
 
-desired_column_order = [
-    'Matches', 'Kills', 'Deaths', 'Assists', 'KD', 'KDA',
-    'Exp. Kills', 'Exp. Deaths', 'Damage Done', 'Damage Taken', 'Dmg/KA', 'Dmg/Death', 
-    'Dmg Difference', 'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Shots Fired', 'Shots Landed',
-    'Grenade Kills', 'Headshot Kills', 'Power Weapon Kills', 'Melee Kills', 
-    'Callout Assists', 'Accuracy', 'Score', 'KD vs. EKD', 'Medals','Win Rate'
-]
-
-
-# Time windows for pivot tables (e.g. 90, 30, 15, 7, 1 days)
 time_windows = {
-    'All Time': df_90_days,
-    'Last 30 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=30))],
-    'Last 15 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=15))],
-    'Last 7 Days': df_90_days[df_90_days['Date'] >= (datetime.now() - timedelta(days=7))],
-    'Last 1 Day': df_90_days[
-        (df_90_days['Date'] >= (datetime.now() - timedelta(days=1)).replace(hour=5, minute=0, second=0)) & 
-        (df_90_days['Date'] < datetime.now().replace(hour=5, minute=0, second=0))
-    ]
+    'Last 30 Days': df_90_days[df_90_days['Date'] >= (now - timedelta(days=30))],
+    'Last 15 Days': df_90_days[df_90_days['Date'] >= (now - timedelta(days=15))],
+    'Last 7 Days': df_90_days[df_90_days['Date'] >= (now - timedelta(days=7))],
+    'Yesterday': df_90_days[
+        (df_90_days['Date'] >= (now - timedelta(days=1)).replace(hour=5, minute=0, second=0)) & 
+        (df_90_days['Date'] < now.replace(hour=5, minute=0, second=0))
+    ],
+    'Today': df_90_days[df_90_days['Date'] >= now.replace(hour=5, minute=0, second=0)]
 }
 
-# Function to create pivot tables
-def create_pivot_table(df, label):
+# Function to format specified columns in the DataFrame to have a certain number of decimal places
+def format_decimal_places(df, format_dict):
+    for column, decimals in format_dict.items():
+        if column in df.columns:
+            df[column] = df[column].apply(lambda x: f"{x:.{decimals}f}" if pd.notnull(x) else '0')
+    return df
+
+# Function to create a styled pivot table sorted by KDA descending
+def create_html_pivot_table(df, label):
+    if df.empty:
+        print(f"No data available for {label}.")
+        return None
+
+    # Create the pivot table
     pivot_table = pd.pivot_table(
         df,
         index='Player',
-        values=numeric_columns,
-        aggfunc={col: 'mean' for col in numeric_columns},
-        fill_value=0
-    ).rename(columns=new_column_names)
+        values=[
+            'Kills', 'Deaths', 'Assists', 'KD', 'KDA', 'KA/D', 'KDvEKD',
+            'Dmg Done', 'Dmg Taken', 'Dmg Difference', 'Dmg/KA', 'Dmg/Death',
+            'Dmg/min (Dealt)', 'Dmg/min (Taken)', 'Shots Fired', 'Shots Landed',
+            'Accuracy', 'Melee Kills', 'Gren. Kills', 'PW Kills', 'HS Kills',
+            'Score', 'Medals', 'Win'
+        ],
+        aggfunc='mean',
+        fill_value=np.nan  # Keep NaN for proper styling and calculations
+    )
 
-    # Add the count of matches (or unique matches if UniqueID is used)
-    match_count = df.groupby('Player')['UniqueID'].nunique()  # Count of unique matches
-    pivot_table['Matches'] = match_count  # Add this as a new column in the pivot table
+    # Format the decimal places as required
+    format_dict = {
+        'KDA': 2,
+        'KD': 2,
+        'KA/D': 2,
+        'Kills': 1,
+        'Deaths': 1,
+        'Assists': 1,
+        'Accuracy': 2,
+        'Dmg Done': 0,
+        'Dmg Taken': 0,
+        'Dmg Difference': 0,
+        'Dmg/KA': 0,
+        'Dmg/Death': 0,
+        'Dmg/min (Dealt)': 0,
+        'Dmg/min (Taken)': 0,
+        'Shots Fired': 0,
+        'Shots Landed': 0,
+        'Score': 0,
+        'Medals': 0,
+        'Win': 2,
+        'KDvEKD': 2,
+        'Gren. Kills': 1,
+        'Melee Kills': 1,
+        'PW Kills': 1,
+        'HS Kills': 1,
+    }
 
-    # Sort by KDA
-    pivot_table.sort_values(by='KDA', ascending=False, inplace=True)
+    pivot_table = format_decimal_places(pivot_table, format_dict)
 
-    # Reindex columns
-    pivot_table = pivot_table.reindex(columns=desired_column_order)
+    # Check if 'KDA' exists in the pivot table before sorting
+    if 'KDA' in pivot_table.columns:
+        pivot_table = pivot_table.sort_values(by='KDA', ascending=False)
+    else:
+        print(f"'KDA' column not found in pivot table for {label}. Skipping sorting.")
 
-    # Format columns
-    for column in pivot_table.columns:
-        if column in ['KD', 'KDA', 'KD vs. EKD','Win Rate']:
-            pivot_table[column] = pivot_table[column].apply(lambda x: f"{x:.2f}")
-        elif column in ['Grenade Kills', 'Power Weapon Kills', 'Melee Kills', 'Headshot Kills', 'Kills', 'Deaths', 'Assists', 'Exp. Deaths', 'Exp. Kills']:
-            pivot_table[column] = pivot_table[column].apply(lambda x: f"{x:.1f}")
-        else:
-            pivot_table[column] = pivot_table[column].apply(lambda x: f"{int(x):d}" if x == round(x) else f"{x:.0f}")
+    # Add the count of matches
+    match_count = df.groupby('Player')['MatchId'].count()
+    pivot_table['Matches'] = match_count
 
-    return pivot_table
-
-# Loop through time windows to create and format pivot tables
-styled_tables = {}
-for label, df in time_windows.items():
-    print(f"{label} - Number of Matches: {df.shape[0]}")  # Check number of matches
-
-    # Check for duplicates in the DataFrame
-    print("Number of duplicate rows:", df.duplicated().sum())
-
-    pivot_table = create_pivot_table(df, label)
-
-    # Inspect the pivot table
-    print(f"{label} - Unique Players: {pivot_table.index.nunique()}")  # Check unique players
-
-    # Replace NaN values with 0 or appropriate default value
+    # Replace any remaining NaNs with zeros if needed for display purposes
     pivot_table.fillna(0, inplace=True)
 
-    # Ensure that only valid numeric columns are used for background gradients
-    numeric_cols = pivot_table.select_dtypes(include=['number']).columns
+    # Generate HTML for the pivot table
+    # Convert the DataFrame to HTML with borders around cells
+    html_table = pivot_table.to_html(
+        border=1,
+        index=True,
+        justify='center',
+        classes='table table-bordered',
+        table_id=label
+    )
 
-    # Define the subsets for the background gradient
-    non_reverse_gradient_subset = numeric_cols.difference(['Damage Taken', 'Dmg/KA', 'Exp. Deaths', 'Dmg/min (Taken)'])
-    reverse_gradient_subset = ['Damage Taken', 'Dmg/KA', 'Exp. Deaths', 'Dmg/min (Taken)']
+    # Return the complete HTML as a string
+    return html_table
 
-    styled_table = pivot_table.style \
-        .set_caption(f"Player Performance Metrics ({label})") \
-        .set_table_styles([
-            {'selector': 'th', 'props': [('text-align', 'center'), ('font-size', '12px'), ('background-color', '#D3D3D3'), ('border', '1px solid #ccc')]},
-            {'selector': 'td', 'props': [('text-align', 'center'), ('border', '1px solid #ccc')]},
-            {'selector': 'tr:hover', 'props': [('background-color', '#f5f5f5')]},
-        ]) \
-        .background_gradient(cmap='YlGnBu', subset=non_reverse_gradient_subset) \
-        .background_gradient(cmap='YlGnBu_r', subset=reverse_gradient_subset) \
-        .set_table_attributes('style="font-family: Verdana;"')  # Set Verdana font
+# Create pivot tables for each time window
+html_output = """
+<html>
+<head>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        table, th, td {
+            border: 1px solid black;
+            border-collapse: collapse;
+            padding: 8px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+"""
 
-    styled_tables[label] = styled_table
+for label, df in time_windows.items():
+    print(f"Creating HTML pivot table for {label}...")  # Notify which table is being created
+    html_table = create_html_pivot_table(df, label)
+    if html_table:
+        html_output += f"<h2>Pivot Table for {label}</h2>"
+        html_output += html_table
 
-# Combine the styled tables' HTML into a single string
-html_content = ""
-for label, styled_table in styled_tables.items():
-    html_content += styled_table.to_html() + "<br><br>"
+html_output += "</body></html>"
 
-# Save the HTML to a file
-html_file = "player_performance_metrics.html"
-with open(html_file, "w") as file:
-    file.write(html_content)
+# Save the HTML output to a file
+html_filename = "styled_pivot_tables.html"
+with open(html_filename, "w") as f:
+    f.write(html_output)
 
-# Open the saved HTML file in the default web browser
-webbrowser.open("file://" + os.path.realpath(html_file))
+print("Styled pivot tables have been successfully exported to HTML.")
+
+# Open the generated HTML file in the default web browser
+webbrowser.open('file://' + os.path.realpath(html_filename))
