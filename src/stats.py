@@ -1107,7 +1107,7 @@ async def process_player(
             except ClientResponseError as e:
                 if e.status == 429:
                     wait_time = (2 ** retries) + random.uniform(0.5, 2.0)
-                    print(f"⚠️ 429 Too Many Requests fetching history. Sleeping {wait_time:.2f}s...")
+                    # Rate limit hit - sleeping silently
                     await asyncio.sleep(wait_time)
                     retries += 1
                 else:
