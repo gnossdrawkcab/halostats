@@ -1022,6 +1022,16 @@ async def process_match(
             # Store the full API-derived payload so we never lose fields.
             # (Calculated fields are added after this snapshot.)
             raw_payload = match_data.copy()
+            
+            # Debug: Check if damage values are in match_data
+            damage_keys = [k for k in match_data.keys() if 'damage' in k.lower()]
+            if damage_keys:
+                print(f"✅ Found damage keys: {damage_keys}")
+                for key in damage_keys:
+                    print(f"   {key} = {match_data[key]}")
+            else:
+                print(f"❌ NO damage keys found! Available keys: {list(match_data.keys())}")
+            
             match_data["raw_json"] = json.dumps(raw_payload, default=str)
             match_data["scraped_at"] = datetime.now(dt_timezone.utc).isoformat()
 
