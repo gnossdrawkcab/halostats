@@ -93,6 +93,12 @@ def select_match_columns(available: set[str]) -> list[str]:
         if col in available and col not in seen:
             ordered.append(col)
             seen.add(col)
+    
+    # Debug: log which requested columns are missing from database
+    missing = set(MATCH_COLUMNS) - available
+    if missing:
+        print(f"⚠️ Missing columns in database: {missing}")
+    
     return ordered or sorted(available)
 
 
