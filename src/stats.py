@@ -999,10 +999,14 @@ async def process_match(
                 if stats:
                     core = get_or_default(stats, 'core_stats')
                     if core:
+                        core_attrs = [k for k in vars(core).keys() if not k.startswith('_')]
+                        print(f"🔍 {player_gamertag} {match_id}: Core stats attributes = {core_attrs}")
+                        
                         for stat_name, stat_value in vars(core).items():
                             if stat_name == 'medals':
                                 match_data['medal_count'] = len(stat_value)
                                 process_medals(stat_value, match_data, medal_names)
+
                             elif stat_name == 'accuracy':
                                 match_data['accuracy'] = stat_value
                             else:
