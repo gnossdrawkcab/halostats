@@ -57,7 +57,18 @@ def authenticate():
     print("🔗 Visit this URL and log in with your Microsoft account:")
     print(auth_url)
     print("\n📋 After logging in, copy the 'code' from the URL and paste it below.")
-    auth_code = input("🔑 Enter authorization code: ").strip()
+    
+    try:
+        auth_code = input("🔑 Enter authorization code: ").strip()
+    except EOFError:
+        print("\n❌ ERROR: Running in non-interactive mode (Docker container).")
+        print("📌 You need to authenticate on your local machine first:")
+        print("   1. Run: python src/auth.py")
+        print("   2. Follow the prompts to authenticate")
+        print("   3. Mount tokens.json to Docker with:")
+        print("      volumes:")
+        print("        - ./tokens.json:/data/tokens.json")
+        return None
 
     # Step 2: Exchange code for access + refresh token
     token_resp = requests.post(
@@ -248,6 +259,10 @@ def main():
         # If no tokens saved, start authentication
         print("🔑 Starting authentication...")
         tokens = authenticate()
+        if not tokens:
+            print("❌ Authentication failed or not available in non-interactive mode.")
+            print("⏳ Exiting. Please authenticate locally and mount tokens.json to Docker.")
+            return
         access_token = tokens["access_token"]
         refresh_token = tokens["refresh_token"]
 
