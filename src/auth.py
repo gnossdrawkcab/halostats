@@ -242,26 +242,31 @@ def get_clearance_token(spartan_token, xuid):
 
 def main():
     """Main entry point"""
+    print("🔑 Halo Stats Authentication")
+    print("=" * 50)
+    
     tokens = load_tokens()
     if tokens:
         # Check if the token is expired
         expiration_time = tokens.get("expires_at", 0)
         current_time = time.time()
         if current_time > expiration_time:
-            print("❌ Tokens have expired, refreshing...")
+            print("⚠️ Tokens have expired, refreshing...")
             tokens = refresh_tokens(tokens["refresh_token"])
         else:
-            print("✅ Using saved tokens...")
+            print("✅ Using existing tokens from tokens.json...")
 
         access_token = tokens["access_token"]
         refresh_token = tokens["refresh_token"]
     else:
         # If no tokens saved, start authentication
-        print("🔑 Starting authentication...")
+        print("📌 This is your first time running this app.")
+        print("📌 You need to authenticate with your Xbox account.\n")
+        
         tokens = authenticate()
         if not tokens:
-            print("❌ Authentication failed or not available in non-interactive mode.")
-            print("⏳ Exiting. Please authenticate locally and mount tokens.json to Docker.")
+            print("\n❌ Authentication failed.")
+            print("⏳ Exiting without creating tokens.json")
             return
         access_token = tokens["access_token"]
         refresh_token = tokens["refresh_token"]

@@ -29,6 +29,16 @@ Before you start, you'll need:
 
 ## 🚀 Quick Start (5 Minutes)
 
+### ⚠️ IMPORTANT: First Time Authentication
+
+Before using this app, you **MUST** authenticate once locally to create `tokens.json`:
+
+```bash
+python src/auth.py
+```
+
+This only takes 5 minutes and is a one-time setup. See **[docs/FIRST_RUN.md](docs/FIRST_RUN.md)** for detailed instructions.
+
 ### Option 1: Docker (Recommended) ✨
 
 **Step 1: Clone and setup**
@@ -38,7 +48,13 @@ cd halostats
 cp .env.example .env
 ```
 
-**Step 2: Configure players to track**
+**Step 2: Create tokens.json (one-time)**
+```bash
+python src/auth.py
+```
+Follow the prompts to authenticate with your Xbox account.
+
+**Step 3: Configure players to track**
 
 Edit `.env` and set `HALO_TRACKED_PLAYERS` with your players:
 
@@ -50,7 +66,7 @@ HALO_TRACKED_PLAYERS='[{"gamertag": "YourGamertag", "xuid": "1234567890123456"}]
 HALO_TRACKED_PLAYERS='[{"gamertag": "Player1", "xuid": "1234567890123456"}, {"gamertag": "Player2", "xuid": "9876543210987654"}]'
 ```
 
-**Step 3: Add Xbox API credentials**
+**Step 4: Add Xbox API credentials**
 
 Edit `.env` and add:
 ```bash
@@ -59,7 +75,7 @@ HALO_CLIENT_SECRET=your_client_secret
 HALO_DB_PASSWORD=your_secure_password
 ```
 
-**Step 4: Run**
+**Step 5: Run with Docker**
 ```bash
 docker compose -f config/compose.yaml up --build
 ```
