@@ -531,6 +531,28 @@ def numeric_series(df: pd.DataFrame, col: str) -> pd.Series:
     return pd.Series([0] * len(df), index=df.index)
 
 
+def score_series(df: pd.DataFrame) -> pd.Series:
+    if df.empty:
+        return pd.Series(dtype=float)
+    if 'personal_score' in df.columns:
+        return numeric_series(df, 'personal_score')
+    if 'score' in df.columns:
+        return numeric_series(df, 'score')
+    return pd.Series(dtype=float)
+
+
+def objective_score_series(df: pd.DataFrame) -> pd.Series:
+    if df.empty:
+        return pd.Series(dtype=float)
+    base_score = score_series(df)
+    if base_score.empty:
+        return pd.Series(dtype=float)
+    kills = numeric_series(df, 'kills')
+    assists = numeric_series(df, 'assists')
+    callouts = numeric_series(df, 'callout_assists')
+    return base_score - (kills * 100) - (assists * 50) - (callouts * 10)
+
+
 def to_number(value) -> float | None:
     """Best-effort conversion of formatted strings to float for heatmaps."""
     if value is None:
@@ -696,6 +718,21 @@ def format_signed(value, digits: int = 0) -> str:
     if digits <= 0:
         return f'{sign}{value:.0f}'
     return f'{sign}{value:.{digits}f}'
+
+
+def outcome_class(value: str) -> str:
+    text = str(value or '').strip().lower()
+    if text in ('win', 'won'):
+        return 'outcome-win'
+    if text in ('loss', 'lose', 'lost'):
+        return 'outcome-loss'
+    if text == 'tie':
+        return 'outcome-tie'
+    if text == 'dnf':
+        return 'outcome-dnf'
+    if text == 'left':
+        return 'outcome-left'
+    return 'outcome-unknown'
 
 
 def safe_kda(kills, assists, deaths) -> float:
@@ -1034,11 +1071,12 @@ def build_ranked_arena_summary(df: pd.DataFrame) -> list:
         accuracy = hit / fired * 100 if fired > 0 else 0
         
         # Score
-        total_score = pd.to_numeric(session_df.get('personal_score', 0), errors='coerce').fillna(0).sum()
+        total_score = score_series(session_df).sum()
         score = total_score / games if games else 0
         team_score = pd.to_numeric(session_df.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
         score_pct = (total_score / team_score * 100) if team_score > 0 else 0
-        obj_score = pd.to_numeric(session_df.get('objectives_completed', 0), errors='coerce').fillna(0).sum() / games if games else 0
+        obj_scores = objective_score_series(session_df)
+        obj_score = obj_scores.sum() / games if games else 0
         
         # Medals and misc
         total_medals = pd.to_numeric(session_df.get('medal_count', 0), errors='coerce').fillna(0).sum()
@@ -1220,11 +1258,12 @@ def calculate_player_stats(player_df: pd.DataFrame, games: int) -> dict:
     accuracy = hit / fired * 100 if fired > 0 else 0
     
     # Score
-    total_score = pd.to_numeric(player_df.get('personal_score', 0), errors='coerce').fillna(0).sum()
+    total_score = score_series(player_df).sum()
     score = total_score / games
     team_score = pd.to_numeric(player_df.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
     score_pct = (total_score / team_score * 100) if team_score > 0 else 0
-    obj_score = pd.to_numeric(player_df.get('objectives_completed', 0), errors='coerce').fillna(0).sum() / games
+    obj_scores = objective_score_series(player_df)
+    obj_score = obj_scores.sum() / games if games else 0
     
     # Medals and misc
     total_medals = pd.to_numeric(player_df.get('medal_count', 0), errors='coerce').fillna(0).sum()
@@ -1513,36 +1552,37 @@ def build_lifetime_stats(df: pd.DataFrame) -> list:
             hit = pd.to_numeric(player_df['shots_hit'], errors='coerce').fillna(0).sum()
             accuracy = hit / fired if fired > 0 else 0
         
+        total_score = score_series(player_df).sum()
+        avg_score = total_score / games if games else 0
+        obj_scores = objective_score_series(player_df)
+        avg_obj_score = obj_scores.sum() / games if games else 0
+        
         rows.append({
             'player': player,
-            'games': format_int(games),
+            'matches': format_int(games),
             'wins': format_int(wins),
             'losses': format_int(losses),
-            'ties': format_int(ties),
-            'win_pct': format_float(wins / games * 100 if games else 0, 1),
-            'kills_pg': format_float(kills_pg, 1),
-            'deaths_pg': format_float(deaths_pg, 1),
-            'assists_pg': format_float(assists_pg, 1),
+            'win_rate': format_float(wins / games * 100 if games else 0, 1),
+            'kills': format_float(kills_pg, 1),
+            'deaths': format_float(deaths_pg, 1),
+            'assists': format_float(assists_pg, 1),
             'kda': format_float(kda, 2),
-            'kd_ratio': format_float(kd_ratio, 2),
-            'damage_pg': format_float(damage_pg, 0),
             'accuracy': format_pct(accuracy),
-            'total_kills': format_int(total_kills),
-            'total_deaths': format_int(total_deaths),
-            'damage_diff': format_signed(total_damage_dealt - total_damage_taken, 0)
+            'avg_score': format_float(avg_score, 0),
+            'avg_obj_score': format_float(avg_obj_score, 1)
         })
     
     add_heatmap_classes(rows, {
-        'games': True, 'win_pct': True, 'kda': True, 'kd_ratio': True,
-        'kills_pg': True, 'deaths_pg': False, 'assists_pg': True,
-        'damage_pg': True, 'accuracy': True
+        'matches': True, 'wins': True, 'losses': False, 'win_rate': True,
+        'kills': True, 'deaths': False, 'assists': True,
+        'kda': True, 'accuracy': True, 'avg_score': True, 'avg_obj_score': True
     })
     
     return rows
 
 
-def build_session_history(df: pd.DataFrame, limit: int = 20) -> list:
-    """Build recent session history across all players."""
+def build_session_history(df: pd.DataFrame, limit: int | None = 20) -> list:
+    """Build recent match history across all players."""
     if df.empty or 'date' not in df.columns:
         return []
     
@@ -1553,76 +1593,81 @@ def build_session_history(df: pd.DataFrame, limit: int = 20) -> list:
     if working.empty:
         return []
     
-    sessions = []
-    seen_matches = set()
+    if isinstance(limit, int) and limit > 0:
+        working = working.head(limit)
     
-    for player in unique_sorted(working['player_gamertag']):
-        player_df = working[working['player_gamertag'] == player].sort_values('date', ascending=False)
-        
-        if player_df.empty:
-            continue
-        
-        session_groups = []
-        current_session = []
-        prev_time = None
-        
-        for idx, row in player_df.iterrows():
-            match_id = row.get('match_id')
-            if match_id in seen_matches:
-                continue
-            
-            match_time = row['date']
-            
-            if prev_time is None or (prev_time - match_time).total_seconds() / 60 <= 30:
-                current_session.append(row)
-                prev_time = match_time
-            else:
-                if current_session:
-                    session_groups.append(pd.DataFrame(current_session))
-                current_session = [row]
-                prev_time = match_time
-            
-            seen_matches.add(match_id)
-        
-        if current_session:
-            session_groups.append(pd.DataFrame(current_session))
-        
-        for session_df in session_groups[:5]:  # Top 5 sessions per player
-            if session_df.empty:
-                continue
-            
-            games = len(session_df)
-            outcomes = session_df['outcome'].astype(str).str.lower() if 'outcome' in session_df.columns else pd.Series()
-            wins = (outcomes == 'win').sum() if not outcomes.empty else 0
-            
-            sessions.append({
-                'player': player,
-                'date': format_date(session_df['date'].max()),
-                'date_iso': format_iso(session_df['date'].max()),
-                'games': games,
-                'wins': wins,
-                'record': f"{wins}-{games - wins}",
-                'win_pct': format_float(wins / games * 100 if games else 0, 1)
-            })
+    score_values = score_series(working)
+    if score_values.empty:
+        score_values = pd.Series(0.0, index=working.index)
+    obj_scores = objective_score_series(working)
+    if obj_scores.empty:
+        obj_scores = pd.Series(0.0, index=working.index)
     
-    sessions.sort(key=lambda x: x['date_iso'], reverse=True)
-    return sessions[:limit]
+    rows = []
+    for idx, row in working.iterrows():
+        kills = safe_float(row.get('kills', 0))
+        deaths = safe_float(row.get('deaths', 0))
+        assists = safe_float(row.get('assists', 0))
+        kda = safe_kda(kills, assists, deaths)
+        kd = kills / deaths if deaths > 0 else kills
+        
+        damage_dealt = safe_float(row.get('damage_dealt', 0))
+        damage_taken = safe_float(row.get('damage_taken', 0))
+        damage_diff = damage_dealt - damage_taken
+        
+        fired = safe_float(row.get('shots_fired', 0))
+        hit = safe_float(row.get('shots_hit', 0))
+        accuracy = hit / fired * 100 if fired > 0 else safe_float(row.get('accuracy', 0))
+        
+        score = safe_float(score_values.loc[idx]) if idx in score_values.index else 0
+        obj_score = safe_float(obj_scores.loc[idx]) if idx in obj_scores.index else 0
+        
+        rows.append({
+            'date': format_date(row.get('date')),
+            'player': row.get('player_gamertag', ''),
+            'game_type': row.get('game_type', ''),
+            'map': row.get('map', ''),
+            'playlist': row.get('playlist', ''),
+            'outcome': str(row.get('outcome', '')).title(),
+            'outcome_class': outcome_class(row.get('outcome', '')),
+            'kills': format_int(kills),
+            'deaths': format_int(deaths),
+            'assists': format_int(assists),
+            'kda': format_float(kda, 2),
+            'kd': format_float(kd, 2),
+            'damage_dealt': format_int(damage_dealt),
+            'damage_taken': format_int(damage_taken),
+            'damage_diff': format_signed(damage_diff, 0),
+            'shots_fired': format_int(fired),
+            'shots_landed': format_int(hit),
+            'accuracy': format_pct(accuracy),
+            'score': format_int(score),
+            'obj_score': format_float(obj_score, 1),
+            'medals': format_int(row.get('medal_count', 0)),
+            'avg_life': format_float(row.get('average_life_duration', 0), 1),
+            'headshots': format_int(row.get('headshot_kills', 0)),
+            'melee': format_int(row.get('melee_kills', 0)),
+            'grenade': format_int(row.get('grenade_kills', 0)),
+            'power': format_int(row.get('power_weapon_kills', 0)),
+            'callouts': format_int(row.get('callout_assists', 0))
+        })
+    
+    add_heatmap_classes(rows, {
+        'kills': True, 'deaths': False, 'assists': True,
+        'kda': True, 'kd': True,
+        'damage_dealt': True, 'damage_taken': False, 'damage_diff': True,
+        'accuracy': True, 'score': True, 'obj_score': True,
+        'medals': True, 'avg_life': True,
+        'headshots': True, 'melee': True, 'grenade': True, 'power': True,
+        'callouts': True
+    })
+    
+    return rows
 
 
 def extract_objective_score(df: pd.DataFrame) -> pd.Series:
-    """Extract objective score from various objective stat columns."""
-    if df.empty:
-        return pd.Series(dtype=float)
-    
-    obj_score = pd.Series(0.0, index=df.index)
-    
-    for prefix in OBJECTIVE_PREFIXES:
-        score_col = f"{prefix}score"
-        if score_col in df.columns:
-            vals = pd.to_numeric(df[score_col], errors='coerce').fillna(0)
-            obj_score = obj_score + vals
-    
-    return obj_score
+    """Calculate objective score from personal score and combat/callout bonuses."""
+    return objective_score_series(df)
 
 
 def safe_col_sum(df: pd.DataFrame, col_name: str) -> float:
@@ -1860,67 +1905,149 @@ def build_hall_fame_shame(df: pd.DataFrame) -> tuple[list, list]:
     if df.empty:
         return [], []
     
-    fame = []
-    shame = []
+    def streaks(player_df: pd.DataFrame) -> tuple[int, int]:
+        if 'outcome' not in player_df.columns or 'date' not in player_df.columns:
+            return 0, 0
+        ordered = player_df.copy()
+        ordered['date'] = pd.to_datetime(ordered['date'], errors='coerce', utc=True)
+        ordered = ordered.dropna(subset=['date']).sort_values('date')
+        if ordered.empty:
+            return 0, 0
+        max_win = max_loss = 0
+        current_win = current_loss = 0
+        for outcome in ordered['outcome'].astype(str).str.lower():
+            if outcome == 'win':
+                current_win += 1
+                current_loss = 0
+            elif outcome == 'loss':
+                current_loss += 1
+                current_win = 0
+            else:
+                current_win = 0
+                current_loss = 0
+            if current_win > max_win:
+                max_win = current_win
+            if current_loss > max_loss:
+                max_loss = current_loss
+        return max_win, max_loss
     
-    # Best KDA game
-    if 'kills' in df.columns and 'deaths' in df.columns and 'assists' in df.columns:
-        kills = pd.to_numeric(df['kills'], errors='coerce').fillna(0)
-        deaths = pd.to_numeric(df['deaths'], errors='coerce').fillna(0).replace(0, 1)
-        assists = pd.to_numeric(df['assists'], errors='coerce').fillna(0)
-        kda = kills + assists / 3 - deaths
+    fame_rows = []
+    shame_rows = []
+    
+    for player in unique_sorted(df['player_gamertag']):
+        player_df = df[df['player_gamertag'] == player]
+        if player_df.empty:
+            continue
         
-        best_idx = kda.idxmax()
-        worst_idx = kda.idxmin()
+        win_streak, loss_streak = streaks(player_df)
         
-        fame.append({
-            'category': 'Best KDA',
-            'player': df.loc[best_idx, 'player_gamertag'],
-            'value': format_float(kda.loc[best_idx], 2),
-            'context': f"{format_int(df.loc[best_idx, 'kills'])}K/{format_int(df.loc[best_idx, 'deaths'])}D/{format_int(df.loc[best_idx, 'assists'])}A"
+        kills = numeric_series(player_df, 'kills')
+        deaths = numeric_series(player_df, 'deaths')
+        assists = numeric_series(player_df, 'assists')
+        kd_series = pd.Series(0.0, index=player_df.index)
+        nonzero = deaths > 0
+        kd_series.loc[nonzero] = kills[nonzero] / deaths[nonzero]
+        kd_series.loc[~nonzero] = kills[~nonzero]
+        kda_series = kills + assists / 3 - deaths
+        
+        if 'shots_fired' in player_df.columns and 'shots_hit' in player_df.columns:
+            fired = numeric_series(player_df, 'shots_fired')
+            hit = numeric_series(player_df, 'shots_hit')
+            accuracy = pd.Series(0.0, index=player_df.index)
+            nonzero = fired > 0
+            accuracy.loc[nonzero] = hit[nonzero] / fired[nonzero] * 100
+        else:
+            accuracy = numeric_series(player_df, 'accuracy')
+        damage_dealt = numeric_series(player_df, 'damage_dealt')
+        damage_taken = numeric_series(player_df, 'damage_taken')
+        damage_diff = damage_dealt - damage_taken
+        score_vals = score_series(player_df)
+        obj_score = objective_score_series(player_df)
+        
+        medals = numeric_series(player_df, 'medal_count')
+        headshots = numeric_series(player_df, 'headshot_kills')
+        grenades = numeric_series(player_df, 'grenade_kills')
+        melee = numeric_series(player_df, 'melee_kills')
+        power = numeric_series(player_df, 'power_weapon_kills')
+        callouts = numeric_series(player_df, 'callout_assists')
+        fired = numeric_series(player_df, 'shots_fired')
+        landed = numeric_series(player_df, 'shots_hit')
+        objectives = numeric_series(player_df, 'objectives_completed')
+        spree = numeric_series(player_df, 'max_killing_spree')
+        avg_life = numeric_series(player_df, 'average_life_duration')
+        betrayals = numeric_series(player_df, 'betrayals')
+        suicides = numeric_series(player_df, 'suicides')
+        
+        csr_delta = pd.Series(dtype=float)
+        if 'pre_match_csr' in player_df.columns and 'post_match_csr' in player_df.columns:
+            pre = pd.to_numeric(player_df['pre_match_csr'], errors='coerce').fillna(0)
+            post = pd.to_numeric(player_df['post_match_csr'], errors='coerce').fillna(0)
+            csr_delta = post - pre
+        
+        fame_rows.append({
+            'player': player,
+            'win_streak': format_int(win_streak),
+            'max_kills': format_int(kills.max() if not kills.empty else 0),
+            'max_assists': format_int(assists.max() if not assists.empty else 0),
+            'max_kda': format_float(kda_series.max() if not kda_series.empty else 0, 2),
+            'max_kd': format_float(kd_series.max() if not kd_series.empty else 0, 2),
+            'max_accuracy': format_float(accuracy.max() if not accuracy.empty else 0, 1),
+            'max_damage_dealt': format_int(damage_dealt.max() if not damage_dealt.empty else 0),
+            'max_damage_diff': format_signed(damage_diff.max() if not damage_diff.empty else 0, 0),
+            'max_score': format_int(score_vals.max() if not score_vals.empty else 0),
+            'max_obj_score': format_float(obj_score.max() if not obj_score.empty else 0, 1),
+            'max_medals': format_int(medals.max() if not medals.empty else 0),
+            'max_headshots': format_int(headshots.max() if not headshots.empty else 0),
+            'max_grenades': format_int(grenades.max() if not grenades.empty else 0),
+            'max_melee': format_int(melee.max() if not melee.empty else 0),
+            'max_power': format_int(power.max() if not power.empty else 0),
+            'max_callouts': format_int(callouts.max() if not callouts.empty else 0),
+            'max_fired': format_int(fired.max() if not fired.empty else 0),
+            'max_landed': format_int(landed.max() if not landed.empty else 0),
+            'max_objectives': format_int(objectives.max() if not objectives.empty else 0),
+            'max_spree': format_int(spree.max() if not spree.empty else 0),
+            'max_avg_life': format_float(avg_life.max() if not avg_life.empty else 0, 1),
+            'max_csr_gain': format_signed(csr_delta.max() if not csr_delta.empty else 0, 0)
         })
         
-        shame.append({
-            'category': 'Worst KDA',
-            'player': df.loc[worst_idx, 'player_gamertag'],
-            'value': format_float(kda.loc[worst_idx], 2),
-            'context': f"{format_int(df.loc[worst_idx, 'kills'])}K/{format_int(df.loc[worst_idx, 'deaths'])}D/{format_int(df.loc[worst_idx, 'assists'])}A"
+        shame_rows.append({
+            'player': player,
+            'loss_streak': format_int(loss_streak),
+            'max_deaths': format_int(deaths.max() if not deaths.empty else 0),
+            'min_kda': format_float(kda_series.min() if not kda_series.empty else 0, 2),
+            'min_kd': format_float(kd_series.min() if not kd_series.empty else 0, 2),
+            'min_accuracy': format_float(accuracy.min() if not accuracy.empty else 0, 1),
+            'max_damage_taken': format_int(damage_taken.max() if not damage_taken.empty else 0),
+            'min_damage_diff': format_signed(damage_diff.min() if not damage_diff.empty else 0, 0),
+            'min_score': format_int(score_vals.min() if not score_vals.empty else 0),
+            'min_obj_score': format_float(obj_score.min() if not obj_score.empty else 0, 1),
+            'min_medals': format_int(medals.min() if not medals.empty else 0),
+            'min_avg_life': format_float(avg_life.min() if not avg_life.empty else 0, 1),
+            'max_csr_loss': format_signed(csr_delta.min() if not csr_delta.empty else 0, 0),
+            'max_betrayals': format_int(betrayals.max() if not betrayals.empty else 0),
+            'max_suicides': format_int(suicides.max() if not suicides.empty else 0)
         })
     
-    # Most kills
-    if 'kills' in df.columns:
-        kills_series = pd.to_numeric(df['kills'], errors='coerce').fillna(0)
-        max_idx = kills_series.idxmax()
-        fame.append({
-            'category': 'Most Kills',
-            'player': df.loc[max_idx, 'player_gamertag'],
-            'value': format_int(kills_series.loc[max_idx]),
-            'context': normalize_map_name(df.loc[max_idx, 'map']) if 'map' in df.columns else ''
-        })
+    add_heatmap_classes(fame_rows, {
+        'win_streak': True, 'max_kills': True, 'max_assists': True,
+        'max_kda': True, 'max_kd': True, 'max_accuracy': True,
+        'max_damage_dealt': True, 'max_damage_diff': True, 'max_score': True,
+        'max_obj_score': True, 'max_medals': True, 'max_headshots': True,
+        'max_grenades': True, 'max_melee': True, 'max_power': True,
+        'max_callouts': True, 'max_fired': True, 'max_landed': True,
+        'max_objectives': True, 'max_spree': True, 'max_avg_life': True,
+        'max_csr_gain': True
+    })
     
-    # Most deaths (shame)
-    if 'deaths' in df.columns:
-        deaths_series = pd.to_numeric(df['deaths'], errors='coerce').fillna(0)
-        max_idx = deaths_series.idxmax()
-        shame.append({
-            'category': 'Most Deaths',
-            'player': df.loc[max_idx, 'player_gamertag'],
-            'value': format_int(deaths_series.loc[max_idx]),
-            'context': normalize_map_name(df.loc[max_idx, 'map']) if 'map' in df.columns else ''
-        })
+    add_heatmap_classes(shame_rows, {
+        'loss_streak': True, 'max_deaths': True, 'min_kda': False,
+        'min_kd': False, 'min_accuracy': False, 'max_damage_taken': True,
+        'min_damage_diff': False, 'min_score': False, 'min_obj_score': False,
+        'min_medals': False, 'min_avg_life': False, 'max_csr_loss': False,
+        'max_betrayals': True, 'max_suicides': True
+    })
     
-    # Best accuracy
-    if 'accuracy' in df.columns:
-        acc_series = pd.to_numeric(df['accuracy'], errors='coerce').fillna(0)
-        max_idx = acc_series.idxmax()
-        fame.append({
-            'category': 'Best Accuracy',
-            'player': df.loc[max_idx, 'player_gamertag'],
-            'value': format_pct(acc_series.loc[max_idx]),
-            'context': ''
-        })
-    
-    return fame, shame
+    return fame_rows, shame_rows
 
 
 def build_map_stats(df: pd.DataFrame) -> list:
@@ -1943,21 +2070,74 @@ def build_map_stats(df: pd.DataFrame) -> list:
         outcomes = map_df['outcome'].astype(str).str.lower() if 'outcome' in map_df.columns else pd.Series()
         wins = (outcomes == 'win').sum() if not outcomes.empty else 0
         
-        avg_kills = pd.to_numeric(map_df.get('kills', 0), errors='coerce').fillna(0).mean()
-        avg_duration = pd.to_numeric(map_df.get('duration', 0), errors='coerce').fillna(0).mean()
+        kills = numeric_series(map_df, 'kills')
+        deaths = numeric_series(map_df, 'deaths')
+        assists = numeric_series(map_df, 'assists')
+        kda_series = kills + assists / 3 - deaths
+        
+        avg_kills = kills.mean() if games else 0
+        avg_deaths = deaths.mean() if games else 0
+        avg_kda = kda_series.mean() if games else 0
         
         rows.append({
             'map': map_name,
             'games': format_int(games),
             'wins': format_int(wins),
-            'win_rate': format_float(wins / games * 100 if games else 0, 1),
+            'win_pct': format_float(wins / games * 100 if games else 0, 1),
             'avg_kills': format_float(avg_kills, 1),
-            'avg_duration': format_int(avg_duration)
+            'avg_deaths': format_float(avg_deaths, 1),
+            'avg_kda': format_float(avg_kda, 2)
         })
     
-    add_heatmap_classes(rows, {'games': True, 'win_rate': True, 'avg_kills': True})
+    add_heatmap_classes(rows, {
+        'games': True, 'win_pct': True, 'avg_kills': True,
+        'avg_deaths': False, 'avg_kda': True
+    })
     rows.sort(key=lambda x: to_number(x['games']) or 0, reverse=True)
     
+    return rows
+
+
+def build_mode_stats(df: pd.DataFrame) -> list:
+    """Build detailed mode statistics."""
+    if df.empty or 'game_type' not in df.columns:
+        return []
+    
+    rows = []
+    for mode_name in unique_sorted(df['game_type']):
+        if not mode_name:
+            continue
+        
+        mode_df = df[df['game_type'] == mode_name]
+        games = len(mode_df)
+        if games == 0:
+            continue
+        
+        outcomes = mode_df['outcome'].astype(str).str.lower() if 'outcome' in mode_df.columns else pd.Series()
+        wins = (outcomes == 'win').sum() if not outcomes.empty else 0
+        
+        kills = numeric_series(mode_df, 'kills')
+        deaths = numeric_series(mode_df, 'deaths')
+        assists = numeric_series(mode_df, 'assists')
+        kda_series = kills + assists / 3 - deaths
+        avg_kda = kda_series.mean() if games else 0
+        
+        score_vals = score_series(mode_df)
+        avg_score = score_vals.mean() if not score_vals.empty else 0
+        
+        rows.append({
+            'mode': mode_name,
+            'games': format_int(games),
+            'win_pct': format_float(wins / games * 100 if games else 0, 1),
+            'avg_kda': format_float(avg_kda, 2),
+            'avg_score': format_float(avg_score, 0)
+        })
+    
+    add_heatmap_classes(rows, {
+        'games': True, 'win_pct': True, 'avg_kda': True, 'avg_score': True
+    })
+    
+    rows.sort(key=lambda x: to_number(x['games']) or 0, reverse=True)
     return rows
 
 
@@ -1985,15 +2165,22 @@ def build_player_map_stats(df: pd.DataFrame) -> list:
             outcomes = map_df['outcome'].astype(str).str.lower() if 'outcome' in map_df.columns else pd.Series()
             wins = (outcomes == 'win').sum() if not outcomes.empty else 0
             
+            kills = numeric_series(map_df, 'kills')
+            deaths = numeric_series(map_df, 'deaths')
+            assists = numeric_series(map_df, 'assists')
+            kda_series = kills + assists / 3 - deaths
+            avg_kda = kda_series.mean() if games else 0
+            
             rows.append({
                 'player': player,
                 'map': map_name,
                 'games': format_int(games),
-                'win_rate': format_float(wins / games * 100 if games else 0, 1)
+                'win_pct': format_float(wins / games * 100 if games else 0, 1),
+                'avg_kda': format_float(avg_kda, 2)
             })
     
-    add_heatmap_classes(rows, {'win_rate': True})
-    rows.sort(key=lambda x: (x['player'], -to_number(x['win_rate']) or 0))
+    add_heatmap_classes(rows, {'win_pct': True, 'avg_kda': True})
+    rows.sort(key=lambda x: (x['player'], -to_number(x['win_pct']) or 0))
     
     return rows
 
@@ -2029,6 +2216,58 @@ def build_trend_data(df: pd.DataFrame, stat_col: str, stat_name: str) -> dict:
     return trends
 
 
+def add_trend_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """Add derived columns used by the trends charts."""
+    if df.empty:
+        return df
+
+    working = df.copy()
+
+    if 'outcome' in working.columns:
+        outcome_lower = working['outcome'].astype(str).str.lower()
+        working['win_rate'] = (outcome_lower == 'win').astype(float) * 100
+
+    obj_score = extract_objective_score(working)
+    if not obj_score.empty:
+        working['obj_score'] = obj_score
+
+    if 'dmg/min' in working.columns:
+        working['dmg_min'] = pd.to_numeric(working['dmg/min'], errors='coerce').fillna(0)
+    elif 'damage_dealt' in working.columns and 'duration' in working.columns:
+        damage_dealt = pd.to_numeric(working['damage_dealt'], errors='coerce').fillna(0)
+        duration = pd.to_numeric(working['duration'], errors='coerce').fillna(0)
+        duration_min = duration / 60.0
+        working['dmg_min'] = 0.0
+        nonzero = duration_min > 0
+        working.loc[nonzero, 'dmg_min'] = damage_dealt[nonzero] / duration_min[nonzero]
+
+    if 'dmg_difference' in working.columns:
+        working['dmg_diff'] = pd.to_numeric(
+            working['dmg_difference'], errors='coerce'
+        ).fillna(0)
+    elif 'damage_dealt' in working.columns and 'damage_taken' in working.columns:
+        damage_dealt = pd.to_numeric(working['damage_dealt'], errors='coerce').fillna(0)
+        damage_taken = pd.to_numeric(working['damage_taken'], errors='coerce').fillna(0)
+        working['dmg_diff'] = damage_dealt - damage_taken
+
+    if 'max_killing_spree' in working.columns:
+        working['max_spree'] = pd.to_numeric(
+            working['max_killing_spree'], errors='coerce'
+        ).fillna(0)
+
+    if 'duration' in working.columns:
+        working['duration_min'] = pd.to_numeric(
+            working['duration'], errors='coerce'
+        ).fillna(0) / 60.0
+
+    if 'kills' in working.columns:
+        working['kills_pg'] = pd.to_numeric(working['kills'], errors='coerce').fillna(0)
+    if 'deaths' in working.columns:
+        working['deaths_pg'] = pd.to_numeric(working['deaths'], errors='coerce').fillna(0)
+
+    return working
+
+
 def build_leaderboard(df: pd.DataFrame, category: str, limit: int = 10) -> list:
     """Build leaderboard for a specific category."""
     if df.empty:
@@ -2045,6 +2284,7 @@ def build_leaderboard(df: pd.DataFrame, category: str, limit: int = 10) -> list:
                     'rank': 0,
                     'player': row['player'],
                     'value': row['current_csr'],
+                    'csr': row['current_csr'],
                     'context': ''
                 })
         rows.sort(key=lambda x: to_number(x['value']) or 0, reverse=True)
@@ -2063,6 +2303,7 @@ def build_leaderboard(df: pd.DataFrame, category: str, limit: int = 10) -> list:
                 'rank': 0,
                 'player': player,
                 'value': format_float(kda, 2),
+                'kda': format_float(kda, 2),
                 'context': f'{games} games'
             })
         
@@ -2080,6 +2321,7 @@ def build_leaderboard(df: pd.DataFrame, category: str, limit: int = 10) -> list:
                     'rank': 0,
                     'player': player,
                     'value': format_float(wins / games * 100, 1),
+                    'win_rate': format_float(wins / games * 100, 1),
                     'context': f'{wins}-{games - wins}'
                 })
         
@@ -2243,11 +2485,20 @@ def lifetime():
     player = request.args.get('player', 'all')
     playlist = request.args.get('playlist', 'all')
     mode = request.args.get('mode', 'all')
+    limit_key = request.args.get('limit', 'all')
     
     filtered = apply_filters(df, player, playlist, mode)
     
     lifetime_rows = build_lifetime_stats(filtered)
-    session_rows = build_session_history(filtered, limit=20)
+    limit = None
+    if limit_key and limit_key != 'all':
+        try:
+            limit = int(limit_key)
+        except ValueError:
+            limit = None
+        if limit is not None and limit <= 0:
+            limit = None
+    session_rows = build_session_history(filtered, limit=limit)
     
     status = load_status()
     
@@ -2262,6 +2513,7 @@ def lifetime():
                           selected_player=player,
                           selected_playlist=playlist,
                           selected_mode=mode,
+                          selected_limit=limit_key,
                           db_row_count=count_cache.get())
 
 
@@ -2462,7 +2714,7 @@ def maps():
     df = cache.get()
     
     map_rows = build_map_stats(df)
-    mode_rows = build_breakdown(df, 'game_type', limit=50) if 'game_type' in df.columns else []
+    mode_rows = build_mode_stats(df)
     player_map_rows = build_player_map_stats(df)
     
     status = load_status()
@@ -2481,9 +2733,9 @@ def maps():
 def trends():
     """Trend analysis page."""
     df = cache.get()
-    
+
     range_key = request.args.get('range', '90')
-    trend_df = apply_trend_range(normalize_trend_df(df), range_key)
+    trend_df = add_trend_metrics(apply_trend_range(normalize_trend_df(df), range_key))
     
     status = load_status()
     
@@ -2500,16 +2752,16 @@ def trends():
                           app_title=APP_TITLE,
                           players=unique_sorted(df['player_gamertag']) if not df.empty else [],
                           csr_trends=build_csr_trends(trend_df),
-                          win_rate_trends={},
+                          win_rate_trends=build_trend_data(trend_df, 'win_rate', 'win_rate') if 'win_rate' in trend_df.columns else {},
                           kda_trends=build_trend_data(trend_df, 'kda', 'kda') if 'kda' in trend_df.columns else {},
-                          obj_score_trends={},
-                          damage_min_trends={},
-                          damage_diff_trends={},
+                          obj_score_trends=build_trend_data(trend_df, 'obj_score', 'obj_score') if 'obj_score' in trend_df.columns else {},
+                          damage_min_trends=build_trend_data(trend_df, 'dmg_min', 'dmg_min') if 'dmg_min' in trend_df.columns else {},
+                          damage_diff_trends=build_trend_data(trend_df, 'dmg_diff', 'dmg_diff') if 'dmg_diff' in trend_df.columns else {},
                           accuracy_trends=build_trend_data(trend_df, 'accuracy', 'accuracy') if 'accuracy' in trend_df.columns else {},
-                          kills_pg_trends=build_trend_data(trend_df, 'kills', 'kills') if 'kills' in trend_df.columns else {},
-                          deaths_pg_trends=build_trend_data(trend_df, 'deaths', 'deaths') if 'deaths' in trend_df.columns else {},
-                          max_spree_trends={},
-                          duration_trends={},
+                          kills_pg_trends=build_trend_data(trend_df, 'kills_pg', 'kills_pg') if 'kills_pg' in trend_df.columns else {},
+                          deaths_pg_trends=build_trend_data(trend_df, 'deaths_pg', 'deaths_pg') if 'deaths_pg' in trend_df.columns else {},
+                          max_spree_trends=build_trend_data(trend_df, 'max_spree', 'max_spree') if 'max_spree' in trend_df.columns else {},
+                          duration_trends=build_trend_data(trend_df, 'duration_min', 'duration_min') if 'duration_min' in trend_df.columns else {},
                           activity_heatmap=[],
                           win_corr_overall=[],
                           trend_ranges=trend_ranges,
