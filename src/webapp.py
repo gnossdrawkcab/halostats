@@ -1622,15 +1622,21 @@ def extract_objective_score(df: pd.DataFrame) -> pd.Series:
     return obj_score
 
 
+def safe_col_sum(df: pd.DataFrame, col_name: str) -> float:
+    """Safely get sum of a column, returning 0 if column doesn't exist."""
+    if col_name in df.columns:
+        return pd.to_numeric(df[col_name], errors='coerce').fillna(0).sum()
+    return 0
+
+
 def build_objective_stats(df: pd.DataFrame, period: str = 'all') -> list:
-    """Build objective statistics (CTF, Oddball, etc.)."""
+    """Build objective statistics (CTF, Oddball, Stronghold, KOTH, Extraction)."""
     if df.empty:
         return []
     
     # Filter by period if needed
     working = df.copy()
     if period == 'session':
-        # Get last session (stub for now - use last 10 games)
         if 'date' in working.columns:
             working['date'] = pd.to_datetime(working['date'], errors='coerce', utc=True)
             working = working.sort_values('date', ascending=False).head(50)
@@ -1646,38 +1652,103 @@ def build_objective_stats(df: pd.DataFrame, period: str = 'all') -> list:
             continue
         
         games = len(player_df)
-        obj_score = extract_objective_score(player_df)
-        total_obj = obj_score.sum()
-        avg_obj = total_obj / games if games else 0
         
-        # CTF specific
-        ctf_caps = pd.to_numeric(player_df['capture_the_flag_stats_flag_captures'], errors='coerce').fillna(0).sum() if 'capture_the_flag_stats_flag_captures' in player_df.columns else 0
-        ctf_returns = pd.to_numeric(player_df['capture_the_flag_stats_flag_returns'], errors='coerce').fillna(0).sum() if 'capture_the_flag_stats_flag_returns' in player_df.columns else 0
+        # CTF stats
+        ctf_caps = safe_col_sum(player_df, 'capture_the_flag_stats_flag_captures')
+        ctf_grabs = safe_col_sum(player_df, 'capture_the_flag_stats_flag_grabs')
+        ctf_returns = safe_col_sum(player_df, 'capture_the_flag_stats_flag_returns')
+        ctf_steals = safe_col_sum(player_df, 'capture_the_flag_stats_flag_steals')
+        ctf_secures = safe_col_sum(player_df, 'capture_the_flag_stats_flag_secures')
+        ctf_carrier_kills = safe_col_sum(player_df, 'capture_the_flag_stats_flag_carriers_killed')
+        ctf_returner_kills = safe_col_sum(player_df, 'capture_the_flag_stats_flag_returners_killed')
+        ctf_kills_as_carrier = safe_col_sum(player_df, 'capture_the_flag_stats_kills_as_flag_carrier')
+        ctf_kills_as_returner = safe_col_sum(player_df, 'capture_the_flag_stats_kills_as_flag_returner')
+        ctf_time = safe_col_sum(player_df, 'capture_the_flag_stats_time_as_flag_carrier')
         
-        # Oddball specific
-        oddball_time = pd.to_numeric(player_df['oddball_stats_time_as_skull_carrier'], errors='coerce').fillna(0).sum() if 'oddball_stats_time_as_skull_carrier' in player_df.columns else 0
-        oddball_kills = pd.to_numeric(player_df['oddball_stats_kills_as_skull_carrier'], errors='coerce').fillna(0).sum() if 'oddball_stats_kills_as_skull_carrier' in player_df.columns else 0
+        # Oddball stats
+        oddball_time = safe_col_sum(player_df, 'oddball_stats_time_as_skull_carrier')
+        oddball_longest = safe_col_sum(player_df, 'oddball_stats_longest_time_as_skull_carrier')
+        oddball_grabs = safe_col_sum(player_df, 'oddball_stats_skull_grabs')
+        oddball_ticks = safe_col_sum(player_df, 'oddball_stats_skull_scoring_ticks')
+        oddball_carrier_kills = safe_col_sum(player_df, 'oddball_stats_kills_as_skull_carrier')
+        oddball_carriers_killed = safe_col_sum(player_df, 'oddball_stats_skull_carriers_killed')
         
-        # Zones specific
-        zones_caps = pd.to_numeric(player_df['zones_stats_stronghold_captures'], errors='coerce').fillna(0).sum() if 'zones_stats_stronghold_captures' in player_df.columns else 0
-        zones_time = pd.to_numeric(player_df['zones_stats_stronghold_occupation_time'], errors='coerce').fillna(0).sum() if 'zones_stats_stronghold_occupation_time' in player_df.columns else 0
+        # Stronghold/Zone stats
+        sh_caps = safe_col_sum(player_df, 'zones_stats_stronghold_captures')
+        sh_secures = safe_col_sum(player_df, 'zones_stats_stronghold_secures')
+        sh_ticks = safe_col_sum(player_df, 'zones_stats_stronghold_scoring_ticks')
+        sh_off_kills = safe_col_sum(player_df, 'zones_stats_stronghold_offensive_kills')
+        sh_def_kills = safe_col_sum(player_df, 'zones_stats_stronghold_defensive_kills')
+        sh_time = safe_col_sum(player_df, 'zones_stats_stronghold_occupation_time')
+        
+        # KOTH is same as stronghold in Halo Infinite
+        koth_time = sh_time
+        koth_ticks = sh_ticks
+        
+        # Extraction stats
+        extract_success = safe_col_sum(player_df, 'extraction_stats_successful_extractions')
+        extract_conv_complete = safe_col_sum(player_df, 'extraction_stats_extraction_conversions_completed')
+        extract_conv_denied = safe_col_sum(player_df, 'extraction_stats_extraction_conversions_denied')
+        extract_init_complete = safe_col_sum(player_df, 'extraction_stats_extraction_initiations_completed')
+        extract_init_denied = safe_col_sum(player_df, 'extraction_stats_extraction_initiations_denied')
+        
+        # Average life
+        avg_life = 0
+        if 'average_life_duration' in player_df.columns:
+            avg_life = pd.to_numeric(player_df['average_life_duration'], errors='coerce').fillna(0).mean()
         
         rows.append({
             'player': player,
             'games': format_int(games),
-            'obj_score': format_float(avg_obj, 1),
-            'total_obj': format_int(total_obj),
+            # CTF
             'ctf_caps': format_int(ctf_caps),
+            'ctf_grabs': format_int(ctf_grabs),
             'ctf_returns': format_int(ctf_returns),
+            'ctf_steals': format_int(ctf_steals),
+            'ctf_secures': format_int(ctf_secures),
+            'ctf_carrier_kills': format_int(ctf_carrier_kills),
+            'ctf_returner_kills': format_int(ctf_returner_kills),
+            'ctf_kills_as_carrier': format_int(ctf_kills_as_carrier),
+            'ctf_kills_as_returner': format_int(ctf_kills_as_returner),
+            'ctf_time': format_int(ctf_time),
+            # Oddball
             'oddball_time': format_int(oddball_time),
-            'oddball_kills': format_int(oddball_kills),
-            'zones_caps': format_int(zones_caps),
-            'zones_time': format_int(zones_time)
+            'oddball_longest': format_int(oddball_longest),
+            'oddball_grabs': format_int(oddball_grabs),
+            'oddball_ticks': format_int(oddball_ticks),
+            'oddball_carrier_kills': format_int(oddball_carrier_kills),
+            'oddball_carriers_killed': format_int(oddball_carriers_killed),
+            # Stronghold
+            'sh_caps': format_int(sh_caps),
+            'sh_secures': format_int(sh_secures),
+            'sh_ticks': format_int(sh_ticks),
+            'sh_off_kills': format_int(sh_off_kills),
+            'sh_def_kills': format_int(sh_def_kills),
+            'sh_time': format_int(sh_time),
+            # KOTH
+            'koth_time': format_int(koth_time),
+            'koth_ticks': format_int(koth_ticks),
+            # Extraction
+            'extract_success': format_int(extract_success),
+            'extract_conv_complete': format_int(extract_conv_complete),
+            'extract_conv_denied': format_int(extract_conv_denied),
+            'extract_init_complete': format_int(extract_init_complete),
+            'extract_init_denied': format_int(extract_init_denied),
+            # Misc
+            'avg_life': format_float(avg_life, 1)
         })
     
     add_heatmap_classes(rows, {
-        'obj_score': True, 'total_obj': True, 'ctf_caps': True,
-        'ctf_returns': True, 'oddball_time': True, 'zones_caps': True
+        'games': True,
+        'ctf_caps': True, 'ctf_grabs': True, 'ctf_returns': True, 'ctf_steals': True,
+        'ctf_secures': True, 'ctf_carrier_kills': True, 'ctf_kills_as_carrier': True, 'ctf_time': True,
+        'oddball_time': True, 'oddball_longest': True, 'oddball_grabs': True, 
+        'oddball_ticks': True, 'oddball_carrier_kills': True,
+        'sh_caps': True, 'sh_secures': True, 'sh_ticks': True,
+        'sh_off_kills': True, 'sh_def_kills': True, 'sh_time': True,
+        'koth_time': True, 'koth_ticks': True,
+        'extract_success': True, 'extract_conv_complete': True, 'extract_init_complete': True,
+        'avg_life': True
     })
     
     return rows
