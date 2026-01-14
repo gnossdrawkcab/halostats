@@ -163,7 +163,10 @@ def load_dataframe(engine) -> pd.DataFrame:
         
         columns = {c.get('name') for c in inspector.get_columns('halo_match_stats')}
         columns.discard(None)
-        select_cols = select_match_columns(columns)
+        
+        # Exclude raw_json to save memory (it's huge and we have the parsed columns)
+        exclude_cols = {'raw_json'}
+        select_cols = [c for c in columns if c not in exclude_cols]
         select_sql = ', '.join(quote_identifier(col) for col in select_cols) if select_cols else '*'
         
         where = []
