@@ -1614,6 +1614,13 @@ def build_highlight_games(df: pd.DataFrame, limit: int = 20) -> list:
                 'deaths': format_int(row.get('deaths', 0)),
                 'assists': format_int(row.get('assists', 0)),
                 'kda': format_float(row.get('_kda_score', 0), 2),
+                'accuracy': format_float(row.get('accuracy', 0), 2),
+                'damage_dealt': format_int(row.get('damage_dealt', 0)),
+                'damage_taken': format_int(row.get('damage_taken', 0)),
+                'dmg_min': format_float(row.get('dmg/min', 0), 1),
+                'dmg_diff': format_int(row.get('dmg_difference', 0)),
+                'score': format_int(row.get('personal_score', 0)),
+                'medals': format_int(row.get('medal_count', 0)),
                 'reason': 'High KDA',
                 'outcome': str(row.get('outcome', '')).title()
             })
