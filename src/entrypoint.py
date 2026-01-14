@@ -2,6 +2,7 @@ import json
 import time
 import subprocess
 import os
+from pathlib import Path
 from halo_paths import data_path
 
 TOKEN_FILE = data_path("tokens.json")
@@ -9,6 +10,9 @@ REQUIRED_KEYS = [
     "access_token", "refresh_token", "user_token",
     "xuid", "xsts_token", "spartan_token", "clearance_token"
 ]
+
+# Get the directory where this script is located
+SCRIPT_DIR = Path(__file__).parent.absolute()
 
 def load_tokens():
     try:
@@ -41,8 +45,9 @@ def tokens_valid():
 
 def run_script(script_name):
     try:
+        script_path = SCRIPT_DIR / script_name
         print(f"▶️ Running {script_name}...")
-        subprocess.run(["python", script_name], check=True)
+        subprocess.run(["python", str(script_path)], check=True)
     except subprocess.CalledProcessError as e:
         print(f"❌ {script_name} failed with exit code {e.returncode}")
 
