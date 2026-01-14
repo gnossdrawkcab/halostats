@@ -32,8 +32,48 @@ DB_HOST = os.getenv('HALO_DB_HOST', 'halostatsapi')
 DB_PORT = os.getenv('HALO_DB_PORT', '5432')
 
 NUMERIC_COLUMNS = ['kills', 'deaths', 'assists', 'kda', 'accuracy', 'score', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference']
-MATCH_COLUMNS = ['match_id', 'date', 'player_gamertag', 'playlist', 'game_type', 'map', 'outcome', 'kills', 'deaths', 'assists', 'accuracy', 'shots_fired', 'shots_hit', 'damage_dealt', 'damage_taken', 'personal_score', 'score', 'callout_assists', 'medal_count', 'average_life_duration', 'headshot_kills', 'melee_kills', 'grenade_kills', 'power_weapon_kills', 'max_killing_spree', 'duration', 'pre_match_csr', 'post_match_csr', 'team_damage_dealt', 'enemy_team_damage_dealt', 'team_personal_score', 'team_score', 'kda', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference', 'objectives_completed', 'betrayals', 'suicides']
-MAJOR_STAT_COLUMNS = [('kills', 'Kills'), ('deaths', 'Deaths'), ('assists', 'Assists'), ('kda', 'KDA'), ('accuracy', 'Accuracy'), ('damage_dealt', 'Damage Dealt'), ('damage_taken', 'Damage Taken'), ('dmg_difference', 'Damage Diff'), ('shots_fired', 'Shots Fired'), ('shots_hit', 'Shots Hit'), ('medal_count', 'Medals'), ('personal_score', 'Personal Score'), ('objectives_completed', 'Objectives'), ('callout_assists', 'Callouts'), ('headshots', 'Headshots'), ('melee_kills', 'Melee Kills'), ('grenade_kills', 'Grenade Kills'), ('power_weapon_kills', 'Power Weapon Kills'), ('average_life_duration', 'Avg Life'), ('dmg/death', 'Damage/Death'), ('betrayals', 'Betrayals'), ('suicides', 'Suicides'), ('pre_match_csr', 'Pre-CSR'), ('post_match_csr', 'Post-CSR')]
+MATCH_COLUMNS = [
+    # Core match info
+    'match_id', 'date', 'player_gamertag', 'playlist', 'game_type', 'map', 'outcome',
+    # Player core stats
+    'kills', 'deaths', 'assists', 'kda', 'accuracy', 'score', 'personal_score',
+    'duration', 'medal_count', 'average_life_duration',
+    # Weapon/Damage stats
+    'damage_dealt', 'damage_taken', 'shots_fired', 'shots_hit',
+    'headshot_kills', 'melee_kills', 'grenade_kills', 'power_weapon_kills',
+    'vehicle_destroys', 'hijacks',
+    # Objective stats
+    'objectives_completed', 'callout_assists', 'betrayals', 'suicides',
+    'rounds_won', 'rounds_lost', 'rounds_tied',
+    # Calculated stats
+    'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference',
+    # CSR tracking
+    'pre_match_csr', 'post_match_csr',
+    # Game type specific
+    'capture_the_flag_stats_flag_captures', 'capture_the_flag_stats_flag_returns',
+    'oddball_stats_time_as_skull_carrier', 'zones_stats_stronghold_captures',
+    'extraction_stats_successful_extractions',
+    # Team stats
+    'team_id', 'team_rank', 'team_damage_dealt', 'team_score', 'team_personal_score',
+    'enemy_team_damage_dealt', 'enemy_team_score'
+]
+MAJOR_STAT_COLUMNS = [
+    ('kills', 'Kills'), ('deaths', 'Deaths'), ('assists', 'Assists'), 
+    ('kda', 'KDA'), ('accuracy', 'Accuracy'),
+    ('damage_dealt', 'Damage Dealt'), ('damage_taken', 'Damage Taken'),
+    ('dmg/ka', 'DMG/KA'), ('dmg/death', 'DMG/Death'), ('dmg/min', 'DMG/Min'),
+    ('dmg_difference', 'Damage Diff'),
+    ('shots_fired', 'Shots Fired'), ('shots_hit', 'Shots Hit'),
+    ('medal_count', 'Medals'), ('personal_score', 'Personal Score'),
+    ('callout_assists', 'Callouts'), 
+    ('headshot_kills', 'Headshots'), ('melee_kills', 'Melee'), ('grenade_kills', 'Grenades'),
+    ('power_weapon_kills', 'Power Weapons'),
+    ('average_life_duration', 'Avg Life'), ('objectives_completed', 'Objectives'),
+    ('betrayals', 'Betrayals'), ('suicides', 'Suicides'),
+    ('pre_match_csr', 'Pre-CSR'), ('post_match_csr', 'Post-CSR'),
+    ('vehicle_destroys', 'Vehicle Kills'), ('hijacks', 'Hijacks'),
+    ('rounds_won', 'Rounds Won'), ('rounds_lost', 'Rounds Lost')
+]
 INDEX_DEFINITIONS = [('idx_halo_match_stats_playlist', 'playlist'), ('idx_halo_match_stats_outcome', 'outcome'), ('idx_halo_match_stats_date', 'date'), ('idx_halo_match_stats_player', 'player_gamertag'), ('idx_halo_match_stats_match', 'match_id')]
 OBJECTIVE_PREFIXES = ('capture_the_flag_stats_', 'oddball_stats_', 'zones_stats_', 'extraction_stats_')
 EXTRA_MATCH_COLUMNS = ['objectives_completed', 'betrayals', 'suicides']
