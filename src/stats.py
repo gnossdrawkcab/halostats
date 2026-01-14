@@ -982,10 +982,6 @@ async def process_match(
                 if stats:
                     core = get_or_default(stats, 'core_stats')
                     if core:
-                        # Debug: log what we're extracting
-                        core_keys = [k for k in vars(core).keys() if not k.startswith('_')]
-                        print(f"🔍 Core stats keys found: {core_keys}")
-                        
                         for stat_name, stat_value in vars(core).items():
                             if stat_name == 'medals':
                                 match_data['medal_count'] = len(stat_value)

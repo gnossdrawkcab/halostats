@@ -32,7 +32,7 @@ DB_HOST = os.getenv('HALO_DB_HOST', 'halostatsapi')
 DB_PORT = os.getenv('HALO_DB_PORT', '5432')
 
 NUMERIC_COLUMNS = ['kills', 'deaths', 'assists', 'kda', 'accuracy', 'score', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference']
-MATCH_COLUMNS = ['match_id', 'date', 'player_gamertag', 'playlist', 'game_type', 'map', 'outcome', 'kills', 'deaths', 'assists', 'accuracy', 'shots_fired', 'shots_hit', 'damage_dealt', 'damage_taken', 'personal_score', 'score', 'callout_assists', 'medal_count', 'average_life_duration', 'headshots', 'headshot_kills', 'melee_kills', 'grenade_kills', 'power_weapon_kills', 'max_killing_spree', 'duration', 'pre_match_csr', 'post_match_csr', 'team_damage_dealt', 'enemy_team_damage_dealt', 'team_personal_score', 'team_score', 'kda', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference', 'objectives_completed', 'betrayals', 'suicides']
+MATCH_COLUMNS = ['match_id', 'date', 'player_gamertag', 'playlist', 'game_type', 'map', 'outcome', 'kills', 'deaths', 'assists', 'accuracy', 'shots_fired', 'shots_hit', 'damage_dealt', 'damage_taken', 'personal_score', 'score', 'callout_assists', 'medal_count', 'average_life_duration', 'headshot_kills', 'melee_kills', 'grenade_kills', 'power_weapon_kills', 'max_killing_spree', 'duration', 'pre_match_csr', 'post_match_csr', 'team_damage_dealt', 'enemy_team_damage_dealt', 'team_personal_score', 'team_score', 'kda', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference', 'objectives_completed', 'betrayals', 'suicides']
 MAJOR_STAT_COLUMNS = [('kills', 'Kills'), ('deaths', 'Deaths'), ('assists', 'Assists'), ('kda', 'KDA'), ('accuracy', 'Accuracy'), ('damage_dealt', 'Damage Dealt'), ('damage_taken', 'Damage Taken'), ('dmg_difference', 'Damage Diff'), ('shots_fired', 'Shots Fired'), ('shots_hit', 'Shots Hit'), ('medal_count', 'Medals'), ('personal_score', 'Personal Score'), ('objectives_completed', 'Objectives'), ('callout_assists', 'Callouts'), ('headshots', 'Headshots'), ('melee_kills', 'Melee Kills'), ('grenade_kills', 'Grenade Kills'), ('power_weapon_kills', 'Power Weapon Kills'), ('average_life_duration', 'Avg Life'), ('dmg/death', 'Damage/Death'), ('betrayals', 'Betrayals'), ('suicides', 'Suicides'), ('pre_match_csr', 'Pre-CSR'), ('post_match_csr', 'Post-CSR')]
 INDEX_DEFINITIONS = [('idx_halo_match_stats_playlist', 'playlist'), ('idx_halo_match_stats_outcome', 'outcome'), ('idx_halo_match_stats_date', 'date'), ('idx_halo_match_stats_player', 'player_gamertag'), ('idx_halo_match_stats_match', 'match_id')]
 OBJECTIVE_PREFIXES = ('capture_the_flag_stats_', 'oddball_stats_', 'zones_stats_', 'extraction_stats_')
@@ -93,12 +93,6 @@ def select_match_columns(available: set[str]) -> list[str]:
         if col in available and col not in seen:
             ordered.append(col)
             seen.add(col)
-    
-    # Debug: log which requested columns are missing from database
-    missing = set(MATCH_COLUMNS) - available
-    if missing:
-        print(f"⚠️ Missing columns in database: {missing}")
-    
     return ordered or sorted(available)
 
 
