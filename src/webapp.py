@@ -2576,37 +2576,48 @@ def leaderboard():
 
 @app.route('/api/debug')
 def debug_data():
-    """Debug endpoint - shows columns and 25 sample rows."""
+    """Debug endpoint - shows columns and data from both DB and cache."""
     engine = get_engine()
     try:
-        # Get 25 rows to check structure
-        query = "SELECT * FROM halo_match_stats LIMIT 25"
-        df = pd.read_sql_query(query, engine)
+        # Get 5 rows from DB directly
+        query = "SELECT * FROM halo_match_stats LIMIT 5"
+        db_df = pd.read_sql_query(query, engine)
         
-        if df.empty:
-            return {"error": "No data in database", "columns": []}
+        # Get data from cache (what webapp uses)
+        cache_df = cache.get()
         
-        # Get column names
-        columns = list(df.columns)
+        db_columns = list(db_df.columns) if not db_df.empty else []
+        cache_columns = list(cache_df.columns) if not cache_df.empty else []
         
-        # Convert all rows to dicts
-        rows = []
-        for idx, row in df.iterrows():
-            row_dict = row.to_dict()
-            # Convert NaN to None for JSON serialization
-            for key in row_dict:
-                if pd.isna(row_dict[key]):
-                    row_dict[key] = None
-            rows.append(row_dict)
+        # Find columns missing in cache
+        missing_in_cache = [c for c in db_columns if c not in cache_columns]
+        extra_in_cache = [c for c in cache_columns if c not in db_columns]
+        
+        # Sample data from cache
+        sample_rows = []
+        if not cache_df.empty:
+            for idx, row in cache_df.head(3).iterrows():
+                row_dict = {}
+                for key in ['player_gamertag', 'date', 'kills', 'deaths', 'damage_dealt', 
+                           'damage_taken', 'accuracy', 'post_match_csr', 'kda']:
+                    if key in row:
+                        val = row[key]
+                        row_dict[key] = None if pd.isna(val) else val
+                sample_rows.append(row_dict)
         
         return {
-            "total_columns": len(columns),
-            "columns": columns,
-            "row_count": len(rows),
-            "rows": rows
+            "db_columns_count": len(db_columns),
+            "cache_columns_count": len(cache_columns),
+            "db_rows": len(db_df),
+            "cache_rows": len(cache_df),
+            "missing_in_cache": missing_in_cache,
+            "extra_in_cache": extra_in_cache,
+            "cache_columns": cache_columns,
+            "sample_cache_data": sample_rows
         }
     except Exception as e:
-        return {"error": str(e)}
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 
 
