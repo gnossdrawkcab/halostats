@@ -995,33 +995,74 @@ def build_ranked_arena_summary(df: pd.DataFrame) -> list:
         wins = (outcomes == 'win').sum() if not outcomes.empty else 0
         win_pct = wins / games * 100 if games > 0 else 0
         
-        kills = pd.to_numeric(session_df.get('kills', 0), errors='coerce').fillna(0).sum() / games if games else 0
-        deaths = pd.to_numeric(session_df.get('deaths', 0), errors='coerce').fillna(0).sum() / games if games else 0
-        assists = pd.to_numeric(session_df.get('assists', 0), errors='coerce').fillna(0).sum() / games if games else 0
+        # Basic stats
+        total_kills = pd.to_numeric(session_df.get('kills', 0), errors='coerce').fillna(0).sum()
+        total_deaths = pd.to_numeric(session_df.get('deaths', 0), errors='coerce').fillna(0).sum()
+        total_assists = pd.to_numeric(session_df.get('assists', 0), errors='coerce').fillna(0).sum()
+        kills = total_kills / games if games else 0
+        deaths = total_deaths / games if games else 0
+        assists = total_assists / games if games else 0
         kda = safe_kda(kills, assists, deaths)
+        kd1 = kills / deaths if deaths > 0 else kills
+        kd2 = (kills + assists) / deaths if deaths > 0 else kills + assists
         
-        accuracy = 0
-        if 'shots_fired' in session_df.columns and 'shots_hit' in session_df.columns:
-            fired = pd.to_numeric(session_df['shots_fired'], errors='coerce').fillna(0).sum()
-            hit = pd.to_numeric(session_df['shots_hit'], errors='coerce').fillna(0).sum()
-            accuracy = hit / fired * 100 if fired > 0 else 0
+        # Damage stats
+        total_dmg_dealt = pd.to_numeric(session_df.get('damage_dealt', 0), errors='coerce').fillna(0).sum()
+        total_dmg_taken = pd.to_numeric(session_df.get('damage_taken', 0), errors='coerce').fillna(0).sum()
+        dmg_plus = total_dmg_dealt / games if games else 0
+        dmg_minus = total_dmg_taken / games if games else 0
+        dmg_diff = total_dmg_dealt - total_dmg_taken
+        dmg_per_ka = total_dmg_dealt / (total_kills + total_assists) if (total_kills + total_assists) > 0 else 0
+        dmg_per_death = total_dmg_dealt / total_deaths if total_deaths > 0 else total_dmg_dealt
         
+        # Duration and dmg/min
+        total_duration = pd.to_numeric(session_df.get('duration', 0), errors='coerce').fillna(0).sum()
+        dmg_per_min = total_dmg_dealt / (total_duration / 60) if total_duration > 0 else 0
+        
+        # Team damage percentage
+        team_dmg = pd.to_numeric(session_df.get('team_damage_dealt', 0), errors='coerce').fillna(0).sum()
+        enemy_dmg = pd.to_numeric(session_df.get('enemy_team_damage_dealt', 0), errors='coerce').fillna(0).sum()
+        dmg_pct_plus = (total_dmg_dealt / team_dmg * 100) if team_dmg > 0 else 0
+        dmg_pct_minus = (total_dmg_dealt / enemy_dmg * 100) if enemy_dmg > 0 else 0
+        
+        # Accuracy
+        fired = pd.to_numeric(session_df.get('shots_fired', 0), errors='coerce').fillna(0).sum()
+        hit = pd.to_numeric(session_df.get('shots_hit', 0), errors='coerce').fillna(0).sum()
+        accuracy = hit / fired * 100 if fired > 0 else 0
+        
+        # Score
+        total_score = pd.to_numeric(session_df.get('personal_score', 0), errors='coerce').fillna(0).sum()
+        score = total_score / games if games else 0
+        team_score = pd.to_numeric(session_df.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
+        score_pct = (total_score / team_score * 100) if team_score > 0 else 0
+        obj_score = pd.to_numeric(session_df.get('objectives_completed', 0), errors='coerce').fillna(0).sum() / games if games else 0
+        
+        # Medals and misc
+        total_medals = pd.to_numeric(session_df.get('medal_count', 0), errors='coerce').fillna(0).sum()
+        medals = total_medals / games if games else 0
+        avg_life = pd.to_numeric(session_df.get('average_life_duration', 0), errors='coerce').fillna(0).mean()
+        callouts = pd.to_numeric(session_df.get('callout_assists', 0), errors='coerce').fillna(0).sum() / games if games else 0
+        
+        # CSR
         latest_csr = None
+        pre_csr = None
+        post_csr = None
         if 'post_match_csr' in session_df.columns:
             post_vals = pd.to_numeric(session_df['post_match_csr'], errors='coerce')
             post_vals = post_vals[post_vals > 0]
             if not post_vals.empty:
                 latest_csr = post_vals.iloc[-1]
+                post_csr = post_vals.iloc[-1]
+        
+        if 'pre_match_csr' in session_df.columns:
+            pre_vals = pd.to_numeric(session_df['pre_match_csr'], errors='coerce')
+            pre_vals = pre_vals[pre_vals > 0]
+            if not pre_vals.empty:
+                pre_csr = pre_vals.iloc[0]
         
         csr_delta = 0
-        if 'pre_match_csr' in session_df.columns and 'post_match_csr' in session_df.columns:
-            sorted_session = session_df.sort_values('date')
-            pre_vals = pd.to_numeric(sorted_session['pre_match_csr'], errors='coerce')
-            post_vals = pd.to_numeric(sorted_session['post_match_csr'], errors='coerce')
-            pre_vals = pre_vals[pre_vals > 0]
-            post_vals = post_vals[post_vals > 0]
-            if not pre_vals.empty and not post_vals.empty:
-                csr_delta = post_vals.iloc[-1] - pre_vals.iloc[0]
+        if pre_csr and post_csr:
+            csr_delta = post_csr - pre_csr
         
         rows.append({
             'player': player,
@@ -1032,15 +1073,40 @@ def build_ranked_arena_summary(df: pd.DataFrame) -> list:
             'kills': format_float(kills, 1),
             'deaths': format_float(deaths, 1),
             'assists': format_float(assists, 1),
+            'kd1': format_float(kd1, 2),
+            'kd2': format_float(kd2, 2),
             'kda': format_float(kda, 2),
+            'dmg_plus': format_float(dmg_plus, 0),
+            'dmg_minus': format_float(dmg_minus, 0),
+            'dmg_diff': format_signed(dmg_diff, 0),
+            'dmg_per_ka': format_float(dmg_per_ka, 0),
+            'dmg_per_death': format_float(dmg_per_death, 0),
+            'dmg_per_min': format_float(dmg_per_min, 0),
+            'dmg_pct_plus': format_float(dmg_pct_plus, 1),
+            'dmg_pct_minus': format_float(dmg_pct_minus, 1),
+            'fired': format_int(fired),
+            'landed': format_int(hit),
             'accuracy': format_float(accuracy, 1),
+            'score': format_float(score, 0),
+            'obj_score': format_float(obj_score, 1),
+            'score_pct': format_float(score_pct, 1),
+            'medals': format_float(medals, 1),
+            'avg_life': format_float(avg_life, 1),
+            'callouts': format_float(callouts, 1),
+            'pre_csr': format_int(pre_csr) if pre_csr else '-',
+            'post_csr': format_int(post_csr) if post_csr else '-',
             'csr_delta': format_signed(csr_delta, 0)
         })
     
     add_heatmap_classes(rows, {
-        'csr': True, 'games': True, 'win_pct': True, 'kda': True,
+        'csr': True, 'games': True, 'win_pct': True, 'kda': True, 'kd1': True, 'kd2': True,
         'kills': True, 'deaths': False, 'assists': True,
-        'accuracy': True, 'csr_delta': True
+        'dmg_plus': True, 'dmg_minus': False, 'dmg_diff': True,
+        'dmg_per_ka': True, 'dmg_per_death': True, 'dmg_per_min': True,
+        'dmg_pct_plus': True, 'dmg_pct_minus': True,
+        'fired': True, 'landed': True, 'accuracy': True,
+        'score': True, 'obj_score': True, 'score_pct': True,
+        'medals': True, 'avg_life': True, 'callouts': True, 'csr_delta': True
     })
     
     rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
@@ -1076,18 +1142,8 @@ def build_ranked_arena_30day(df: pd.DataFrame) -> list:
         games = len(player_df)
         outcomes = player_df['outcome'].astype(str).str.lower() if 'outcome' in player_df.columns else pd.Series()
         wins = (outcomes == 'win').sum() if not outcomes.empty else 0
-        win_pct = wins / games * 100 if games > 0 else 0
         
-        kills = pd.to_numeric(player_df.get('kills', 0), errors='coerce').fillna(0).sum() / games if games else 0
-        deaths = pd.to_numeric(player_df.get('deaths', 0), errors='coerce').fillna(0).sum() / games if games else 0
-        assists = pd.to_numeric(player_df.get('assists', 0), errors='coerce').fillna(0).sum() / games if games else 0
-        kda = safe_kda(kills, assists, deaths)
-        
-        accuracy = 0
-        if 'shots_fired' in player_df.columns and 'shots_hit' in player_df.columns:
-            fired = pd.to_numeric(player_df['shots_fired'], errors='coerce').fillna(0).sum()
-            hit = pd.to_numeric(player_df['shots_hit'], errors='coerce').fillna(0).sum()
-            accuracy = hit / fired * 100 if fired > 0 else 0
+        stats = calculate_player_stats(player_df, games)
         
         latest_csr = None
         if 'post_match_csr' in player_df.columns:
@@ -1097,25 +1153,126 @@ def build_ranked_arena_30day(df: pd.DataFrame) -> list:
             if not post_vals.empty:
                 latest_csr = post_vals.iloc[0]
         
-        rows.append({
-            'player': player,
-            'csr': format_float(latest_csr, 1) if latest_csr else '-',
-            'games': format_int(games),
-            'win_pct': format_float(win_pct, 1),
-            'kills': format_float(kills, 1),
-            'deaths': format_float(deaths, 1),
-            'assists': format_float(assists, 1),
-            'kda': format_float(kda, 2),
-            'accuracy': format_float(accuracy, 1)
-        })
+        row = format_player_stats_row(player, games, wins, stats, latest_csr)
+        rows.append(row)
     
-    add_heatmap_classes(rows, {
-        'csr': True, 'games': True, 'win_pct': True, 'kda': True,
-        'kills': True, 'deaths': False, 'assists': True, 'accuracy': True
-    })
+    add_heatmap_classes(rows, FULL_HEATMAP_CONFIG)
+    rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
+    return rows
     
     rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
     return rows
+
+
+def calculate_player_stats(player_df: pd.DataFrame, games: int) -> dict:
+    """Calculate all stats for a player's matches. Returns a dict of stat values."""
+    if games == 0:
+        return {}
+    
+    # Basic stats
+    total_kills = pd.to_numeric(player_df.get('kills', 0), errors='coerce').fillna(0).sum()
+    total_deaths = pd.to_numeric(player_df.get('deaths', 0), errors='coerce').fillna(0).sum()
+    total_assists = pd.to_numeric(player_df.get('assists', 0), errors='coerce').fillna(0).sum()
+    kills = total_kills / games
+    deaths = total_deaths / games
+    assists = total_assists / games
+    kda = safe_kda(kills, assists, deaths)
+    kd1 = kills / deaths if deaths > 0 else kills
+    kd2 = (kills + assists) / deaths if deaths > 0 else kills + assists
+    
+    # Damage stats
+    total_dmg_dealt = pd.to_numeric(player_df.get('damage_dealt', 0), errors='coerce').fillna(0).sum()
+    total_dmg_taken = pd.to_numeric(player_df.get('damage_taken', 0), errors='coerce').fillna(0).sum()
+    dmg_plus = total_dmg_dealt / games
+    dmg_minus = total_dmg_taken / games
+    dmg_diff = total_dmg_dealt - total_dmg_taken
+    dmg_per_ka = total_dmg_dealt / (total_kills + total_assists) if (total_kills + total_assists) > 0 else 0
+    dmg_per_death = total_dmg_dealt / total_deaths if total_deaths > 0 else total_dmg_dealt
+    
+    # Duration and dmg/min
+    total_duration = pd.to_numeric(player_df.get('duration', 0), errors='coerce').fillna(0).sum()
+    dmg_per_min = total_dmg_dealt / (total_duration / 60) if total_duration > 0 else 0
+    
+    # Team damage percentage
+    team_dmg = pd.to_numeric(player_df.get('team_damage_dealt', 0), errors='coerce').fillna(0).sum()
+    enemy_dmg = pd.to_numeric(player_df.get('enemy_team_damage_dealt', 0), errors='coerce').fillna(0).sum()
+    dmg_pct_plus = (total_dmg_dealt / team_dmg * 100) if team_dmg > 0 else 0
+    dmg_pct_minus = (total_dmg_dealt / enemy_dmg * 100) if enemy_dmg > 0 else 0
+    
+    # Accuracy
+    fired = pd.to_numeric(player_df.get('shots_fired', 0), errors='coerce').fillna(0).sum()
+    hit = pd.to_numeric(player_df.get('shots_hit', 0), errors='coerce').fillna(0).sum()
+    accuracy = hit / fired * 100 if fired > 0 else 0
+    
+    # Score
+    total_score = pd.to_numeric(player_df.get('personal_score', 0), errors='coerce').fillna(0).sum()
+    score = total_score / games
+    team_score = pd.to_numeric(player_df.get('team_personal_score', 0), errors='coerce').fillna(0).sum()
+    score_pct = (total_score / team_score * 100) if team_score > 0 else 0
+    obj_score = pd.to_numeric(player_df.get('objectives_completed', 0), errors='coerce').fillna(0).sum() / games
+    
+    # Medals and misc
+    total_medals = pd.to_numeric(player_df.get('medal_count', 0), errors='coerce').fillna(0).sum()
+    medals = total_medals / games
+    avg_life = pd.to_numeric(player_df.get('average_life_duration', 0), errors='coerce').fillna(0).mean()
+    callouts = pd.to_numeric(player_df.get('callout_assists', 0), errors='coerce').fillna(0).sum() / games
+    
+    return {
+        'kills': kills, 'deaths': deaths, 'assists': assists,
+        'kd1': kd1, 'kd2': kd2, 'kda': kda,
+        'dmg_plus': dmg_plus, 'dmg_minus': dmg_minus, 'dmg_diff': dmg_diff,
+        'dmg_per_ka': dmg_per_ka, 'dmg_per_death': dmg_per_death, 'dmg_per_min': dmg_per_min,
+        'dmg_pct_plus': dmg_pct_plus, 'dmg_pct_minus': dmg_pct_minus,
+        'fired': fired, 'hit': hit, 'accuracy': accuracy,
+        'score': score, 'obj_score': obj_score, 'score_pct': score_pct,
+        'medals': medals, 'avg_life': avg_life, 'callouts': callouts
+    }
+
+
+def format_player_stats_row(player: str, games: int, wins: int, stats: dict, csr: float = None) -> dict:
+    """Format stats dict into a row dict with proper formatting."""
+    win_pct = wins / games * 100 if games > 0 else 0
+    return {
+        'player': player,
+        'csr': format_float(csr, 1) if csr else '-',
+        'games': format_int(games),
+        'win_pct': format_float(win_pct, 1),
+        'kills': format_float(stats.get('kills', 0), 1),
+        'deaths': format_float(stats.get('deaths', 0), 1),
+        'assists': format_float(stats.get('assists', 0), 1),
+        'kd1': format_float(stats.get('kd1', 0), 2),
+        'kd2': format_float(stats.get('kd2', 0), 2),
+        'kda': format_float(stats.get('kda', 0), 2),
+        'dmg_plus': format_float(stats.get('dmg_plus', 0), 0),
+        'dmg_minus': format_float(stats.get('dmg_minus', 0), 0),
+        'dmg_diff': format_signed(stats.get('dmg_diff', 0), 0),
+        'dmg_per_ka': format_float(stats.get('dmg_per_ka', 0), 0),
+        'dmg_per_death': format_float(stats.get('dmg_per_death', 0), 0),
+        'dmg_per_min': format_float(stats.get('dmg_per_min', 0), 0),
+        'dmg_pct_plus': format_float(stats.get('dmg_pct_plus', 0), 1),
+        'dmg_pct_minus': format_float(stats.get('dmg_pct_minus', 0), 1),
+        'fired': format_int(stats.get('fired', 0)),
+        'landed': format_int(stats.get('hit', 0)),
+        'accuracy': format_float(stats.get('accuracy', 0), 1),
+        'score': format_float(stats.get('score', 0), 0),
+        'obj_score': format_float(stats.get('obj_score', 0), 1),
+        'score_pct': format_float(stats.get('score_pct', 0), 1),
+        'medals': format_float(stats.get('medals', 0), 1),
+        'avg_life': format_float(stats.get('avg_life', 0), 1),
+        'callouts': format_float(stats.get('callouts', 0), 1)
+    }
+
+
+FULL_HEATMAP_CONFIG = {
+    'csr': True, 'games': True, 'win_pct': True, 'kda': True, 'kd1': True, 'kd2': True,
+    'kills': True, 'deaths': False, 'assists': True,
+    'dmg_plus': True, 'dmg_minus': False, 'dmg_diff': True,
+    'dmg_per_ka': True, 'dmg_per_death': True, 'dmg_per_min': True,
+    'dmg_pct_plus': True, 'dmg_pct_minus': True,
+    'fired': True, 'landed': True, 'accuracy': True,
+    'score': True, 'obj_score': True, 'score_pct': True,
+    'medals': True, 'avg_life': True, 'callouts': True, 'csr_delta': True
+}
 
 
 def build_ranked_arena_lifetime(df: pd.DataFrame) -> list:
@@ -1137,22 +1294,8 @@ def build_ranked_arena_lifetime(df: pd.DataFrame) -> list:
         games = len(player_df)
         outcomes = player_df['outcome'].astype(str).str.lower() if 'outcome' in player_df.columns else pd.Series()
         wins = (outcomes == 'win').sum() if not outcomes.empty else 0
-        win_pct = wins / games * 100 if games > 0 else 0
         
-        total_kills = pd.to_numeric(player_df.get('kills', 0), errors='coerce').fillna(0).sum()
-        total_deaths = pd.to_numeric(player_df.get('deaths', 0), errors='coerce').fillna(0).sum()
-        total_assists = pd.to_numeric(player_df.get('assists', 0), errors='coerce').fillna(0).sum()
-        
-        kills_pg = total_kills / games if games else 0
-        deaths_pg = total_deaths / games if games else 0
-        assists_pg = total_assists / games if games else 0
-        kda = safe_kda(kills_pg, assists_pg, deaths_pg)
-        
-        accuracy = 0
-        if 'shots_fired' in player_df.columns and 'shots_hit' in player_df.columns:
-            fired = pd.to_numeric(player_df['shots_fired'], errors='coerce').fillna(0).sum()
-            hit = pd.to_numeric(player_df['shots_hit'], errors='coerce').fillna(0).sum()
-            accuracy = hit / fired * 100 if fired > 0 else 0
+        stats = calculate_player_stats(player_df, games)
         
         latest_csr = None
         if 'post_match_csr' in player_df.columns and 'date' in player_df.columns:
@@ -1162,23 +1305,10 @@ def build_ranked_arena_lifetime(df: pd.DataFrame) -> list:
             if not post_vals.empty:
                 latest_csr = post_vals.iloc[0]
         
-        rows.append({
-            'player': player,
-            'csr': format_float(latest_csr, 1) if latest_csr else '-',
-            'games': format_int(games),
-            'win_pct': format_float(win_pct, 1),
-            'kills': format_float(kills_pg, 1),
-            'deaths': format_float(deaths_pg, 1),
-            'assists': format_float(assists_pg, 1),
-            'kda': format_float(kda, 2),
-            'accuracy': format_float(accuracy, 1)
-        })
+        row = format_player_stats_row(player, games, wins, stats, latest_csr)
+        rows.append(row)
     
-    add_heatmap_classes(rows, {
-        'csr': True, 'games': True, 'win_pct': True, 'kda': True,
-        'kills': True, 'deaths': False, 'assists': True, 'accuracy': True
-    })
-    
+    add_heatmap_classes(rows, FULL_HEATMAP_CONFIG)
     rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
     return rows
 
