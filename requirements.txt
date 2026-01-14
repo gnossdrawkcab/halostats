@@ -1,0 +1,8 @@
+requests
+aiohttp
+spnkr
+pandas
+sqlalchemy
+psycopg2-binary
+flask
+waitress

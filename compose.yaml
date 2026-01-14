@@ -1,0 +1,75 @@
+services:
+  halostats:
+    build: .
+    container_name: halostats
+    volumes:
+      - .:/app
+      - /mnt/user/appdata/halo:/data
+      # mount the persistent CA bundle into the container
+      - /mnt/user/appdata/halo/cabundle.pem:/etc/ssl/certs/cabundle.pem:ro
+    environment:
+      - TZ=America/New_York
+      - SSL_CERT_FILE=/etc/ssl/certs/cabundle.pem
+      - HALO_DATA_DIR=/data
+      - HALO_DB_HOST=halodb
+      - HALO_DB_PORT=5432
+      - HALO_DB_NAME=halodb
+      - HALO_DB_USER=postgres
+      - HALO_DB_PASSWORD=${HALO_DB_PASSWORD}
+      - HALO_CLIENT_ID=${HALO_CLIENT_ID}
+      - HALO_CLIENT_SECRET=${HALO_CLIENT_SECRET}
+      - HALO_MATCH_LIMIT=100
+      - HALO_UPDATE_INTERVAL=60
+    depends_on:
+      - halodb
+    restart: unless-stopped
+
+  halo-web:
+    build: .
+    container_name: halo-web
+    command: ["python", "webapp.py"]
+    ports:
+      - "8091:8091"
+    volumes:
+      - .:/app
+      - /mnt/user/appdata/halo:/data
+    environment:
+      - TZ=America/New_York
+      - HALO_DATA_DIR=/data
+      - HALO_WEB_PORT=8091
+      - HALO_DB_HOST=halodb
+      - HALO_DB_PORT=5432
+      - HALO_DB_NAME=halodb
+      - HALO_DB_USER=postgres
+      - HALO_DB_PASSWORD=${HALO_DB_PASSWORD}
+      - HALO_CACHE_TTL=120
+      - HALO_DB_COUNT_TTL=60
+    depends_on:
+      - halostats
+    restart: unless-stopped
+
+  halodb:
+    image: postgres:15
+    container_name: halodb
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${HALO_DB_PASSWORD}
+      POSTGRES_DB: halodb
+    ports:
+      - "5432:5432"
+    networks:
+      default:
+        aliases:
+          - db
+    volumes:
+      - /mnt/user/appdata/halo/postgres:/var/lib/postgresql/data
+
+  adminer:
+    image: adminer
+    container_name: halo-adminer
+    restart: unless-stopped
+    depends_on:
+      - halodb
+    ports:
+      - "8088:8080"
