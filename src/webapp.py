@@ -7,10 +7,16 @@ import os
 import re
 import time
 import pandas as pd
+from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, Response
 from sqlalchemy import create_engine, inspect
 from sqlalchemy import text
 from halo_paths import data_path
+
+# Setup Flask with correct template and static paths for Docker
+APP_ROOT = Path(__file__).parent.parent  # Go up from /app/src to /app
+TEMPLATE_DIR = APP_ROOT / 'templates'
+STATIC_DIR = APP_ROOT / 'static'
 
 APP_TITLE = os.getenv('HALO_SITE_TITLE', '👑 Scrim Kings')
 TIMEZONE = os.getenv('HALO_TZ', 'US/Eastern')
@@ -32,7 +38,7 @@ INDEX_DEFINITIONS = [('idx_halo_match_stats_playlist', 'playlist'), ('idx_halo_m
 OBJECTIVE_PREFIXES = ('capture_the_flag_stats_', 'oddball_stats_', 'zones_stats_', 'extraction_stats_')
 EXTRA_MATCH_COLUMNS = ['objectives_completed', 'betrayals', 'suicides']
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(TEMPLATE_DIR), static_folder=str(STATIC_DIR))
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600
 
 PLAYER_COLORS = {
