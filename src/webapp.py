@@ -2342,6 +2342,38 @@ def leaderboard():
                           db_row_count=count_cache.get())
 
 
+@app.route('/api/debug')
+def debug_data():
+    """Debug endpoint - shows columns and one sample row."""
+    engine = get_db_engine()
+    try:
+        # Just get ONE row to check structure
+        query = "SELECT * FROM halo_match_stats LIMIT 1"
+        df = pd.read_sql_query(query, engine)
+        
+        if df.empty:
+            return {"error": "No data in database", "columns": []}
+        
+        # Get column names
+        columns = list(df.columns)
+        
+        # Get first row as dict
+        first_row = df.iloc[0].to_dict()
+        
+        # Convert NaN to None for JSON serialization
+        for key in first_row:
+            if pd.isna(first_row[key]):
+                first_row[key] = None
+        
+        return {
+            "total_columns": len(columns),
+            "columns": columns,
+            "sample_row": first_row
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.route('/api/export')
 def export_data():
     """Export filtered data as CSV or JSON."""
