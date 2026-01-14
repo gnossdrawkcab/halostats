@@ -2345,7 +2345,7 @@ def leaderboard():
 @app.route('/api/debug')
 def debug_data():
     """Debug endpoint - shows columns and 25 sample rows."""
-    engine = get_db_engine()
+    engine = get_engine()
     try:
         # Get 25 rows to check structure
         query = "SELECT * FROM halo_match_stats LIMIT 25"
