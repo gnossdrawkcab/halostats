@@ -2344,11 +2344,11 @@ def leaderboard():
 
 @app.route('/api/debug')
 def debug_data():
-    """Debug endpoint - shows columns and one sample row."""
+    """Debug endpoint - shows columns and 25 sample rows."""
     engine = get_db_engine()
     try:
-        # Just get ONE row to check structure
-        query = "SELECT * FROM halo_match_stats LIMIT 1"
+        # Get 25 rows to check structure
+        query = "SELECT * FROM halo_match_stats LIMIT 25"
         df = pd.read_sql_query(query, engine)
         
         if df.empty:
@@ -2357,21 +2357,25 @@ def debug_data():
         # Get column names
         columns = list(df.columns)
         
-        # Get first row as dict
-        first_row = df.iloc[0].to_dict()
-        
-        # Convert NaN to None for JSON serialization
-        for key in first_row:
-            if pd.isna(first_row[key]):
-                first_row[key] = None
+        # Convert all rows to dicts
+        rows = []
+        for idx, row in df.iterrows():
+            row_dict = row.to_dict()
+            # Convert NaN to None for JSON serialization
+            for key in row_dict:
+                if pd.isna(row_dict[key]):
+                    row_dict[key] = None
+            rows.append(row_dict)
         
         return {
             "total_columns": len(columns),
             "columns": columns,
-            "sample_row": first_row
+            "row_count": len(rows),
+            "rows": rows
         }
     except Exception as e:
         return {"error": str(e)}
+
 
 
 @app.route('/api/export')
