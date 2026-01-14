@@ -2410,6 +2410,7 @@ def player_profile(player_name: str):
                           map_stats=[],  # Stub
                           teammate_stats=[],  # Stub
                           player_win_corr=[],  # Stub
+                          csr_history=[],  # Stub - CSR history chart data
                           last_update=status.get('last_update'),
                           db_row_count=count_cache.get())
 
