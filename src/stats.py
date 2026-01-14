@@ -589,14 +589,6 @@ def prepare_results_dataframe(results: list) -> pd.DataFrame:
     if df.empty:
         return df
 
-    # Debug: Check what we have before conversion
-    damage_cols = [col for col in df.columns if 'damage' in col.lower()]
-    if damage_cols:
-        print(f"🔍 Before conversion - damage columns: {damage_cols}")
-        for col in damage_cols:
-            sample_values = df[col].head(3).tolist()
-            print(f"   {col}: {sample_values}")
-
     df = convert_time_columns_to_seconds(df)
     df = normalize_columns_for_db(df)
 
@@ -608,15 +600,6 @@ def prepare_results_dataframe(results: list) -> pd.DataFrame:
             df[col] = df[col].astype(str)
         elif col != "date":
             df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    # Debug: Check what happened after conversion
-    if damage_cols:
-        print(f"🔍 After conversion - damage columns:")
-        for col in damage_cols:
-            if col in df.columns:
-                sample_values = df[col].head(3).tolist()
-                null_count = df[col].isna().sum()
-                print(f"   {col}: {sample_values} (NULLs: {null_count})")
 
     return df
 
@@ -999,14 +982,10 @@ async def process_match(
                 if stats:
                     core = get_or_default(stats, 'core_stats')
                     if core:
-                        core_attrs = [k for k in vars(core).keys() if not k.startswith('_')]
-                        print(f"🔍 {player_gamertag} {match_id}: Core stats attributes = {core_attrs}")
-                        
                         for stat_name, stat_value in vars(core).items():
                             if stat_name == 'medals':
                                 match_data['medal_count'] = len(stat_value)
                                 process_medals(stat_value, match_data, medal_names)
-
                             elif stat_name == 'accuracy':
                                 match_data['accuracy'] = stat_value
                             else:
@@ -1022,16 +1001,6 @@ async def process_match(
             # Store the full API-derived payload so we never lose fields.
             # (Calculated fields are added after this snapshot.)
             raw_payload = match_data.copy()
-            
-            # Debug: Check if damage values are in match_data
-            damage_keys = [k for k in match_data.keys() if 'damage' in k.lower()]
-            if damage_keys:
-                print(f"✅ Found damage keys: {damage_keys}")
-                for key in damage_keys:
-                    print(f"   {key} = {match_data[key]}")
-            else:
-                print(f"❌ NO damage keys found! Available keys: {list(match_data.keys())}")
-            
             match_data["raw_json"] = json.dumps(raw_payload, default=str)
             match_data["scraped_at"] = datetime.now(dt_timezone.utc).isoformat()
 
