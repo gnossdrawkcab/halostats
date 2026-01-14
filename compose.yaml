@@ -5,6 +5,7 @@ services:
     command: ["python", "/app/src/entrypoint.py"]
     volumes:
       - .:/app
+      - ./tokens.json:/data/tokens.json
       - /mnt/user/appdata/halo:/data
       # mount the persistent CA bundle into the container
       - /mnt/user/appdata/halo/cabundle.pem:/etc/ssl/certs/cabundle.pem:ro

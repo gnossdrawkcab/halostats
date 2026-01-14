@@ -73,12 +73,26 @@ def main():
         sleep_seconds = get_update_interval()
         
         if not tokens_valid():
-            run_script("auth.py")
+            # Check if running in Docker (HALO_DATA_DIR suggests Docker environment)
+            is_docker = os.getenv("HALO_DATA_DIR") == "/data"
+            
+            if is_docker:
+                print("⏳ tokens.json not found in Docker container.")
+                print("📌 To get started:")
+                print("   1. Authenticate locally: python src/auth.py")
+                print("   2. Mount tokens.json to Docker:")
+                print("      volumes:")
+                print("        - ./tokens.json:/data/tokens.json")
+                print(f"⏳ Waiting for tokens.json (checking every {sleep_seconds}s)...")
+            else:
+                # Run auth locally
+                run_script("auth.py")
 
         if tokens_valid():
             run_script("stats.py")
         else:
-            print("❌ Unable to validate tokens after auth. Skipping this cycle.")
+            if not os.getenv("HALO_DATA_DIR"):
+                print("❌ Unable to validate tokens after auth. Skipping this cycle.")
 
         print(f"Sleeping {sleep_seconds} seconds before next run...")
         time.sleep(sleep_seconds)
