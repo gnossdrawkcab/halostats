@@ -373,14 +373,52 @@ def write_extra_stats_to_kv(
             key_rows,
         )
 
+# Load players to track from environment variable
+def load_players_from_env():
+    """Load players from environment variable HALO_TRACKED_PLAYERS.
+    
+    Format: JSON array of objects with gamertag and xuid
+    Example: '[{"gamertag": "PlayerOne", "xuid": "123456"}, {"gamertag": "PlayerTwo", "xuid": "789012"}]'
+    
+    Falls back to default players if env var is not set.
+    """
+    default_players = [
+        {"gamertag": "l 0cty l", "xuid": "2533274818160056"},
+        {"gamertag": "Zaidster7", "xuid": "2533274965035069"},
+        {"gamertag": "l P1N1 l", "xuid": "2533274804338345"},
+        {"gamertag": "l Viper18 l", "xuid": "2535430400255009"},
+        {"gamertag": "l Jordo l", "xuid": "2533274797008163"},
+    ]
+    
+    players_json = os.getenv("HALO_TRACKED_PLAYERS", "").strip()
+    
+    if not players_json:
+        print(f"✅ No HALO_TRACKED_PLAYERS set. Using {len(default_players)} default players.")
+        return default_players
+    
+    try:
+        players = json.loads(players_json)
+        if not isinstance(players, list):
+            print("⚠️ HALO_TRACKED_PLAYERS must be a JSON array. Using defaults.")
+            return default_players
+        
+        # Validate each player has required fields
+        for player in players:
+            if not isinstance(player, dict) or 'gamertag' not in player or 'xuid' not in player:
+                print("⚠️ Invalid player format. Each player needs 'gamertag' and 'xuid'. Using defaults.")
+                return default_players
+        
+        print(f"✅ Loaded {len(players)} players from HALO_TRACKED_PLAYERS")
+        for player in players:
+            print(f"   - {player['gamertag']} ({player['xuid']})")
+        return players
+    except json.JSONDecodeError as e:
+        print(f"⚠️ Failed to parse HALO_TRACKED_PLAYERS: {e}. Using defaults.")
+        return default_players
+
+
 # Define the players to track
-PLAYERS = [
-    {"gamertag": "l 0cty l", "xuid": "2533274818160056"},
-    {"gamertag": "Zaidster7", "xuid": "2533274965035069"},
-    {"gamertag": "l P1N1 l", "xuid": "2533274804338345"},
-    {"gamertag": "l Viper18 l", "xuid": "2535430400255009"},
-    {"gamertag": "l Jordo l", "xuid": "2533274797008163"},
-]
+PLAYERS = load_players_from_env()
 
 FINAL_COLUMNS = [
     'player_gamertag', 'player_xuid', 'match_id', 'date', 'duration', 'game_type', 'map', 'playlist','playlist_id', 'outcome', 'team_id', 'team_rank', 'kills', 'deaths', 'assists', 'kda', 'accuracy','score', 'medal_count', 'dmg/ka', 'dmg/death', 'dmg/min', 'dmg_difference', 'pre_match_csr', 'post_match_csr', 'medal_360','medal_Achilles_Spine','medal_Always_Rotating','medal_Back_Smack','medal_Ballista','medal_Bank_Shot','medal_Blind_Fire','medal_Bodyguard','medal_Bomber','medal_Boom_Block','medal_Boxer','medal_Breacher','medal_Bulltrue','medal_Call_Blocked','medal_Chain_Reaction','medal_Clear_Reception','medal_Clock_Stop','medal_Cluster_Luck','medal_Combat_Evolved','medal_Counter_snipe','medal_Deadly_Catch','medal_Double_Kill','medal_Extermination','medal_Fastball','medal_Flag_Joust','medal_Flawless_Victory','medal_From_the_Grave','medal_Fumble','medal_Goal_Line_Stand','medal_Grenadier','medal_Guardian_Angel','medal_Gunslinger','medal_Hail_Mary','medal_Hang_Up','medal_Harpoon','medal_Hill_Guardian','medal_Hold_This','medal_Interlinked','medal_Killing_Frenzy','medal_Killing_Spree','medal_Killjoy','medal_Killtacular','medal_Killtrocity','medal_Last_Shot','medal_Marksman','medal_Mind_the_Gap','medal_Nade_Shot','medal_Ninja','medal_No_Scope','medal_Odin_s_Raven','medal_Off_the_Rack','medal_Overkill','medal_Pancake','medal_Perfect','medal_Pull','medal_Quick_Draw','medal_Quigley','medal_Remote_Detonation','medal_Return_to_Sender','medal_Reversal','medal_Rifleman','medal_Scattergunner','medal_Secure_Line','medal_Sharpshooter','medal_Shot_Caller','medal_Signal_Block','medal_Sneak_King','medal_Snipe','medal_Special_Delivery','medal_Spotter','medal_Steaktacular','medal_Stick','medal_Stopped_Short','medal_Straight_Balling','medal_Treasure_Hunter','medal_Triple_Kill','medal_Warrior','medal_Whiplash','medal_Wingman','medal_Yard_Sale','medal_id_1024030246','medal_id_1032565232','medal_id_1117301492','medal_id_1267013266','medal_id_152718958','medal_id_1552628741','medal_id_1825517751','medal_id_204144695','medal_id_22113181','medal_id_2387185397','medal_id_2408971842','medal_id_249491819','medal_id_3002710045','medal_id_316828380','medal_id_340198991','medal_id_3507884073','medal_id_4130011565','medal_id_4247243561','medal_id_454168309','medal_id_555570945','medal_id_601966503','medal_id_638246808','medal_id_709346128','medal_id_746397417','medal_id_911992497','all_time_max_csr_initial_measurement_matches','all_time_max_csr_measurement_matches_remaining','all_time_max_csr_next_sub_tier','all_time_max_csr_next_tier','all_time_max_csr_next_tier_start','all_time_max_csr_sub_tier','all_time_max_csr_tier','all_time_max_csr_tier_start','all_time_max_csr_value','current_csr_initial_measurement_matches','current_csr_measurement_matches_remaining','current_csr_next_sub_tier','current_csr_next_tier','current_csr_next_tier_start','current_csr_sub_tier','current_csr_tier','current_csr_tier_start','current_csr_value','season_max_csr_initial_measurement_matches','season_max_csr_measurement_matches_remaining','season_max_csr_next_sub_tier','season_max_csr_next_tier','season_max_csr_next_tier_start','season_max_csr_sub_tier','season_max_csr_tier','season_max_csr_tier_start','season_max_csr_value','average_life_duration','betrayals','callout_assists','capture_the_flag_stats_flag_capture_assists','capture_the_flag_stats_flag_captures','capture_the_flag_stats_flag_carriers_killed','capture_the_flag_stats_flag_grabs','capture_the_flag_stats_flag_returners_killed','capture_the_flag_stats_flag_returns','capture_the_flag_stats_flag_secures','capture_the_flag_stats_flag_steals','capture_the_flag_stats_kills_as_flag_carrier','capture_the_flag_stats_kills_as_flag_returner','capture_the_flag_stats_time_as_flag_carrier','damage_dealt','damage_taken','driver_assists','emp_assists','extraction_stats_extraction_conversions_completed','extraction_stats_extraction_conversions_denied','extraction_stats_extraction_initiations_completed','extraction_stats_extraction_initiations_denied','extraction_stats_successful_extractions','grenade_kills','headshot_kills','hijacks','max_killing_spree','melee_kills','objectives_completed','oddball_stats_kills_as_skull_carrier','oddball_stats_longest_time_as_skull_carrier','oddball_stats_skull_carriers_killed','oddball_stats_skull_grabs','oddball_stats_skull_scoring_ticks','oddball_stats_time_as_skull_carrier','personal_score','power_weapon_kills','pvp_stats_assists','pvp_stats_deaths','pvp_stats_kda','pvp_stats_kills','rounds_lost','rounds_tied','rounds_won','shots_fired','shots_hit','spawns','suicides','vehicle_destroys','zones_stats_stronghold_captures','zones_stats_stronghold_defensive_kills','zones_stats_stronghold_occupation_time','zones_stats_stronghold_offensive_kills','zones_stats_stronghold_scoring_ticks','zones_stats_stronghold_secures','team_accuracy','team_assists','team_average_life_duration','team_betrayals','team_callout_assists','team_capture_the_flag_stats_flag_capture_assists','team_capture_the_flag_stats_flag_captures','team_capture_the_flag_stats_flag_carriers_killed','team_capture_the_flag_stats_flag_grabs','team_capture_the_flag_stats_flag_returners_killed','team_capture_the_flag_stats_flag_returns','team_capture_the_flag_stats_flag_secures','team_capture_the_flag_stats_flag_steals','team_capture_the_flag_stats_kills_as_flag_carrier','team_capture_the_flag_stats_kills_as_flag_returner','team_capture_the_flag_stats_time_as_flag_carrier','team_damage_dealt','team_damage_taken','team_deaths','team_driver_assists','team_emp_assists','team_extraction_stats_extraction_conversions_completed','team_extraction_stats_extraction_conversions_denied','team_extraction_stats_extraction_initiations_completed','team_extraction_stats_extraction_initiations_denied','team_extraction_stats_successful_extractions','team_grenade_kills','team_headshot_kills','team_hijacks','team_id','team_kda','team_kills','team_max_killing_spree','team_medal_count','team_medals','team_melee_kills','team_objectives_completed','team_oddball_stats_kills_as_skull_carrier','team_oddball_stats_longest_time_as_skull_carrier','team_oddball_stats_skull_carriers_killed','team_oddball_stats_skull_grabs','team_oddball_stats_skull_scoring_ticks','team_oddball_stats_time_as_skull_carrier','team_personal_score','team_power_weapon_kills','team_pvp_stats_assists','team_pvp_stats_deaths','team_pvp_stats_kda','team_pvp_stats_kills','team_rank','team_rounds_lost','team_rounds_tied','team_rounds_won','team_score','team_shots_fired','team_shots_hit','team_spawns','team_suicides','team_vehicle_destroys','team_zones_stats_stronghold_captures','team_zones_stats_stronghold_defensive_kills','team_zones_stats_stronghold_occupation_time','team_zones_stats_stronghold_offensive_kills','team_zones_stats_stronghold_scoring_ticks','team_zones_stats_stronghold_secures','enemy_team_accuracy','enemy_team_assists','enemy_team_average_life_duration','enemy_team_betrayals','enemy_team_callout_assists','enemy_team_capture_the_flag_stats_flag_capture_assists','enemy_team_capture_the_flag_stats_flag_captures','enemy_team_capture_the_flag_stats_flag_carriers_killed','enemy_team_capture_the_flag_stats_flag_grabs','enemy_team_capture_the_flag_stats_flag_returners_killed','enemy_team_capture_the_flag_stats_flag_returns','enemy_team_capture_the_flag_stats_flag_secures','enemy_team_capture_the_flag_stats_flag_steals','enemy_team_capture_the_flag_stats_kills_as_flag_carrier','enemy_team_capture_the_flag_stats_kills_as_flag_returner','enemy_team_capture_the_flag_stats_time_as_flag_carrier','enemy_team_damage_dealt','enemy_team_damage_taken','enemy_team_deaths','enemy_team_driver_assists','enemy_team_emp_assists','enemy_team_extraction_stats_extraction_conversions_completed','enemy_team_extraction_stats_extraction_conversions_denied','enemy_team_extraction_stats_extraction_initiations_completed','enemy_team_extraction_stats_extraction_initiations_denied','enemy_team_extraction_stats_successful_extractions','enemy_team_grenade_kills','enemy_team_headshot_kills','enemy_team_hijacks','enemy_team_kda','enemy_team_kills','enemy_team_max_killing_spree','enemy_team_medal_count','enemy_team_medals','enemy_team_melee_kills','enemy_team_objectives_completed','enemy_team_oddball_stats_kills_as_skull_carrier','enemy_team_oddball_stats_longest_time_as_skull_carrier','enemy_team_oddball_stats_skull_carriers_killed','enemy_team_oddball_stats_skull_grabs','enemy_team_oddball_stats_skull_scoring_ticks','enemy_team_oddball_stats_time_as_skull_carrier','enemy_team_personal_score','enemy_team_power_weapon_kills','enemy_team_pvp_stats_assists','enemy_team_pvp_stats_deaths','enemy_team_pvp_stats_kda','enemy_team_pvp_stats_kills','enemy_team_rounds_lost','enemy_team_rounds_tied','enemy_team_rounds_won','enemy_team_score','enemy_team_shots_fired','enemy_team_shots_hit','enemy_team_spawns','enemy_team_suicides','enemy_team_vehicle_destroys','enemy_team_zones_stats_stronghold_captures','enemy_team_zones_stats_stronghold_defensive_kills','enemy_team_zones_stats_stronghold_occupation_time','enemy_team_zones_stats_stronghold_offensive_kills','enemy_team_zones_stats_stronghold_scoring_ticks','enemy_team_zones_stats_stronghold_secures'
