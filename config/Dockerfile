@@ -21,5 +21,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy all local files into the container
 COPY . .
 
+# Set the PYTHONPATH to include the src directory
+ENV PYTHONPATH=/app/src:$PYTHONPATH
+
+# Set the working directory to src for running scripts
+WORKDIR /app/src
+
 # Set the default command
 CMD ["python", "entrypoint.py"]
