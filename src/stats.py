@@ -589,6 +589,14 @@ def prepare_results_dataframe(results: list) -> pd.DataFrame:
     if df.empty:
         return df
 
+    # Debug: Check what we have before conversion
+    damage_cols = [col for col in df.columns if 'damage' in col.lower()]
+    if damage_cols:
+        print(f"🔍 Before conversion - damage columns: {damage_cols}")
+        for col in damage_cols:
+            sample_values = df[col].head(3).tolist()
+            print(f"   {col}: {sample_values}")
+
     df = convert_time_columns_to_seconds(df)
     df = normalize_columns_for_db(df)
 
@@ -600,6 +608,15 @@ def prepare_results_dataframe(results: list) -> pd.DataFrame:
             df[col] = df[col].astype(str)
         elif col != "date":
             df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Debug: Check what happened after conversion
+    if damage_cols:
+        print(f"🔍 After conversion - damage columns:")
+        for col in damage_cols:
+            if col in df.columns:
+                sample_values = df[col].head(3).tolist()
+                null_count = df[col].isna().sum()
+                print(f"   {col}: {sample_values} (NULLs: {null_count})")
 
     return df
 
