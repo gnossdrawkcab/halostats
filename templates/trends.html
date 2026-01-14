@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Trends - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Performance Trends</h2>
+  <p class="muted">Track how stats change over time</p>
+</section>
+
+{% if trend_ranges %}
+<div class="trend-range trend-range-sticky">
+  <span class="trend-range-title">Timeline</span>
+  {% for option in trend_ranges %}
+  <a class="trend-range-btn{% if option.active %} active{% endif %}" href="{{ url_for('trends', range=option.key) }}">{{ option.label }}</a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<section class="panel">
+  <h2>CSR Trends (All Players)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="csrTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win Rate Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="winRateTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>KDA Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="kdaTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Objective Score Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="objScoreTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Damage/Min Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="damageMinTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Damage Difference Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="damageDiffTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Accuracy Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="accuracyTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Kills/Game Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="killsPgTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Deaths/Game Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="deathsPgTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Max Killing Spree Trends (7-Day Rolling)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="maxSpreeTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Match Duration Trends (7-Day Rolling, Minutes)</h2>
+  <div class="chart-container" style="height: 400px;">
+    <canvas id="durationTrendChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win % Correlation (All Players)</h2>
+  <p class="muted">Top 20 stats vs winning a match (per-match win flag). Positive means higher values align with wins; negative aligns with losses. Sorted by impact.</p>
+  <div class="chart-container" style="height: 420px;">
+    <canvas id="overallWinCorrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Activity Heatmap</h2>
+  <p class="muted">Games played by day of week and hour</p>
+  <div class="heatmap-container" id="activityHeatmap">
+    <div class="heatmap-grid">
+      {% for day in activity_heatmap %}
+      <div class="heatmap-row">
+        <span class="heatmap-label">{{ day.day }}</span>
+        {% for hour in day.hours %}
+        <div class="heatmap-cell" style="background-color: rgba(61, 191, 184, {{ hour.intensity }});" title="{{ day.day }} {{ hour.hour }}:00 - {{ hour.count }} games"></div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="heatmap-hours">
+      {% for h in range(24) %}
+      <span>{{ h }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
+const playerColors = [
+  { key: 'zaidster', color: '#228b22' },
+  { key: '0cty', color: '#ffd700' },
+  { key: 'octy', color: '#ffd700' },
+  { key: 'viper', color: '#4169e1' },
+  { key: 'jordo', color: '#c0c0c0' },
+  { key: 'p1n1', color: '#dc3545' },
+  { key: 'pini', color: '#dc3545' }
+];
+
+const hexToRgb = (hex) => {
+  const clean = hex.replace('#', '').trim();
+  if (clean.length !== 6) {
+    return null;
+  }
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return { r, g, b };
+};
+
+const withAlpha = (hex, alpha) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) {
+    return hex;
+  }
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+};
+
+const getPlayerColor = (player, fallback) => {
+  const name = String(player || '').toLowerCase();
+  const match = playerColors.find(entry => name.includes(entry.key));
+  return match ? match.color : fallback;
+};
+
+const sortTrendData = (data) => data.slice().sort((a, b) => a.date.localeCompare(b.date));
+const buildTrendLabels = (trends) => {
+  const dates = new Set();
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => dates.add(point.date));
+  });
+  return Array.from(dates).sort((a, b) => a.localeCompare(b));
+};
+const getTrendRange = (trends, valueKey, padding = 0.1, bounds = null) => {
+  const values = [];
+  Object.values(trends || {}).forEach(series => {
+    series.forEach(point => {
+      const value = Number(point[valueKey]);
+      if (Number.isFinite(value)) {
+        values.push(value);
+      }
+    });
+  });
+  if (!values.length) {
+    return {};
+  }
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+  const range = max - min;
+  const pad = range * padding;
+  min -= pad;
+  max += pad;
+  if (bounds) {
+    if (typeof bounds.min === 'number') {
+      min = Math.max(min, bounds.min);
+    }
+    if (typeof bounds.max === 'number') {
+      max = Math.min(max, bounds.max);
+    }
+  }
+  return { min, max };
+};
+const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}) => {
+  if (!trends || Object.keys(trends).length === 0) {
+    return;
+  }
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) {
+    return;
+  }
+  const ctx = canvas.getContext('2d');
+  const labels = buildTrendLabels(trends);
+  const datasets = Object.entries(trends).map(([player, data], index) => ({
+    label: player,
+    data: sortTrendData(data).map(d => ({ x: d.date, y: d[valueKey] })),
+    borderColor: getPlayerColor(player, chartColors[index % chartColors.length]),
+    backgroundColor: withAlpha(getPlayerColor(player, chartColors[index % chartColors.length]), 0.2),
+    fill: false,
+    tension: 0.15,
+    borderWidth: 2,
+    pointRadius: 0,
+    pointHoverRadius: 3,
+    spanGaps: true
+  }));
+  const yScale = Object.assign(
+    { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } },
+    yOptions
+  );
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'nearest' },
+      plugins: { legend: { labels: { color: '#e8dfd3' } } },
+      scales: {
+        x: { type: 'category', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82', maxTicksLimit: 12, autoSkip: true } },
+        y: yScale
+      }
+    }
+  });
+};
+
+const csrTrends = {{ csr_trends|tojson|safe }};
+renderTrendChart('csrTrendChart', csrTrends, 'csr');
+
+const winRateTrends = {{ win_rate_trends|tojson|safe }};
+renderTrendChart('winRateTrendChart', winRateTrends, 'win_rate', { min: 0, max: 100 });
+
+const kdaTrends = {{ kda_trends|tojson|safe }};
+renderTrendChart('kdaTrendChart', kdaTrends, 'kda');
+
+const objScoreTrends = {{ obj_score_trends|tojson|safe }};
+renderTrendChart('objScoreTrendChart', objScoreTrends, 'obj_score');
+
+const damageMinTrends = {{ damage_min_trends|tojson|safe }};
+renderTrendChart('damageMinTrendChart', damageMinTrends, 'dmg_min');
+
+const damageDiffTrends = {{ damage_diff_trends|tojson|safe }};
+renderTrendChart('damageDiffTrendChart', damageDiffTrends, 'dmg_diff');
+
+const accuracyTrends = {{ accuracy_trends|tojson|safe }};
+const accuracyRange = getTrendRange(accuracyTrends, 'accuracy', 0.12, { min: 0, max: 100 });
+renderTrendChart('accuracyTrendChart', accuracyTrends, 'accuracy', accuracyRange);
+
+const killsPgTrends = {{ kills_pg_trends|tojson|safe }};
+renderTrendChart('killsPgTrendChart', killsPgTrends, 'kills_pg');
+
+const deathsPgTrends = {{ deaths_pg_trends|tojson|safe }};
+renderTrendChart('deathsPgTrendChart', deathsPgTrends, 'deaths_pg');
+
+const maxSpreeTrends = {{ max_spree_trends|tojson|safe }};
+renderTrendChart('maxSpreeTrendChart', maxSpreeTrends, 'max_spree');
+
+const durationTrends = {{ duration_trends|tojson|safe }};
+renderTrendChart('durationTrendChart', durationTrends, 'duration_min');
+
+const overallWinCorr = {{ win_corr_overall|default([])|tojson|safe }};
+if (overallWinCorr && overallWinCorr.length > 0) {
+  const ctx = document.getElementById('overallWinCorrChart').getContext('2d');
+  const labels = overallWinCorr.map(row => row.stat);
+  const values = overallWinCorr.map(row => row.corr);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Correlation',
+        data: values,
+        backgroundColor: values.map(value => value >= 0 ? 'rgba(61, 191, 184, 0.6)' : 'rgba(255, 122, 61, 0.6)'),
+        borderColor: values.map(value => value >= 0 ? '#3dbfb8' : '#ff7a3d'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Corr: ${context.parsed.x.toFixed(3)}`
+          }
+        }
+      },
+      scales: {
+        x: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#9a8f82' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

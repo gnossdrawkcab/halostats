@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Player Comparison - {{ app_title }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    {% include 'partials/nav.html' %}
+
+    <main class="page">
+      <section class="panel">
+        <h2>Player Comparison - All Stats</h2>
+        <p style="color: var(--muted); margin: 0 0 12px 0;">Compare all players across comprehensive lifetime statistics</p>
+        
+        <div class="table-wrap" style="overflow-x: auto;">
+          <table class="data-table" style="min-width: 1800px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Current CSR">CSR</th>
+                <th title="Number of games played">GMS</th>
+                <th title="Win percentage">WIN%</th>
+                <th title="Average kills per game">K</th>
+                <th title="Average deaths per game">D</th>
+                <th title="Average assists per game">A</th>
+                <th title="Kill/Death ratio">KD1</th>
+                <th title="Extended KD ratio">KD2</th>
+                <th title="KDA formula">KDA</th>
+                <th title="Average damage dealt per game">DMG +</th>
+                <th title="Average damage taken per game">DMG -</th>
+                <th title="Damage difference">DMG DIF</th>
+                <th title="Damage dealt per Kill+Assist">DMG/KA</th>
+                <th title="Damage dealt per Death">DMG/D</th>
+                <th title="Damage dealt per minute">DMG/M</th>
+                <th title="Your damage as % of team total">DMG %</th>
+                <th title="Your damage as % of enemy team total">DMG %-</th>
+                <th title="Total shots fired">FIRED</th>
+                <th title="Total shots that hit">LANDED</th>
+                <th title="Accuracy percentage">ACC.</th>
+                <th title="Average score per game">SCORE</th>
+                <th title="Objective score (personal score minus combat bonuses)">OBJ SCORE</th>
+                <th title="Your score as % of team total">SCORE %</th>
+                <th title="Average medals earned per game">MEDALS</th>
+                <th title="Average life duration">LIFETIME</th>
+                <th title="Callout assists per game">CALLOUTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if comparison_rows %}
+                {% for row in comparison_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="27" class="empty">No player data available</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

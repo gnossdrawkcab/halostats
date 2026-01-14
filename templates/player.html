@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player_name }} - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel player-header">
+  <div class="player-info">
+    <h1>{{ player_name }}</h1>
+    <div class="player-status">
+      <span class="status-dot {% if is_online %}online{% endif %}"></span>
+      {% if is_online %}Online{% else %}Offline{% endif %}
+    </div>
+  </div>
+  <div class="player-csr-card">
+    <div class="csr-display">
+      <span class="csr-label">Current CSR</span>
+      <span class="csr-value">{{ current_csr }}</span>
+    </div>
+    <div class="csr-display">
+      <span class="csr-label">Peak CSR</span>
+      <span class="csr-value peak">{{ max_csr }}</span>
+    </div>
+    <div class="csr-display">
+      <span class="csr-label">Win Streak</span>
+      <span class="csr-value {% if current_streak > 0 %}streak-win{% elif current_streak < 0 %}streak-loss{% endif %}">
+        {% if current_streak > 0 %}🔥 {{ current_streak }}W{% elif current_streak < 0 %}❄️ {{ current_streak|abs }}L{% else %}—{% endif %}
+      </span>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>CSR History</h2>
+  <div class="chart-container">
+    <canvas id="csrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Win % Correlation</h2>
+  <p class="muted">Top 20 stats vs winning a match for this player. Positive means higher values align with wins; negative aligns with losses. Sorted by impact.</p>
+  <div class="chart-container" style="height: 420px;">
+    <canvas id="playerWinCorrChart"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Session Comparison</h2>
+  <div class="comparison-grid">
+    <div class="comparison-card">
+      <h3>Last Session</h3>
+      <div class="stat-row">
+        <span>Games</span>
+        <span>{{ last_session.games }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Win %</span>
+        <span class="{{ last_session.win_pct_heat }}">{{ last_session.win_pct }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA</span>
+        <span class="{{ last_session.kda_heat }}">{{ last_session.kda }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Accuracy</span>
+        <span class="{{ last_session.accuracy_heat }}">{{ last_session.accuracy }}</span>
+      </div>
+      <div class="stat-row">
+        <span>CSR Change</span>
+        <span class="{{ last_session.csr_delta_heat }}">{{ last_session.csr_delta }}</span>
+      </div>
+    </div>
+    <div class="comparison-card">
+      <h3>30-Day Average</h3>
+      <div class="stat-row">
+        <span>Games</span>
+        <span>{{ avg_30day.games }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Win %</span>
+        <span class="{{ avg_30day.win_pct_heat }}">{{ avg_30day.win_pct }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA</span>
+        <span class="{{ avg_30day.kda_heat }}">{{ avg_30day.kda }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Accuracy</span>
+        <span class="{{ avg_30day.accuracy_heat }}">{{ avg_30day.accuracy }}</span>
+      </div>
+      <div class="stat-row">
+        <span>Avg CSR/Session</span>
+        <span>{{ avg_30day.avg_csr_change }}</span>
+      </div>
+    </div>
+    <div class="comparison-card {% if comparison.trend == 'up' %}trend-up{% elif comparison.trend == 'down' %}trend-down{% endif %}">
+      <h3>Trend</h3>
+      <div class="trend-indicator">
+        {% if comparison.trend == 'up' %}
+          <span class="trend-arrow">📈</span>
+          <span>Improving</span>
+        {% elif comparison.trend == 'down' %}
+          <span class="trend-arrow">📉</span>
+          <span>Declining</span>
+        {% else %}
+          <span class="trend-arrow">➡️</span>
+          <span>Stable</span>
+        {% endif %}
+      </div>
+      <div class="stat-row">
+        <span>Win % Change</span>
+        <span class="{{ comparison.win_pct_class }}">{{ comparison.win_pct_diff }}</span>
+      </div>
+      <div class="stat-row">
+        <span>KDA Change</span>
+        <span class="{{ comparison.kda_class }}">{{ comparison.kda_diff }}</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Recent Matches</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="player-matches">
+      <thead>
+        <tr>
+          <th title="Match date and time">Date</th>
+          <th title="Game mode">Mode</th>
+          <th title="Map played">Map</th>
+          <th title="Match result">Result</th>
+          <th title="Kills">K</th>
+          <th title="Deaths">D</th>
+          <th title="Assists">A</th>
+          <th title="Kill/Death/Assist ratio">KDA</th>
+          <th title="Shot accuracy percentage">Acc</th>
+          <th title="CSR before match">Pre</th>
+          <th title="CSR after match">Post</th>
+          <th title="CSR change">Δ</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if match_history %}
+        {% for match in match_history %}
+        <tr class="expandable-row" data-match-id="{{ match.match_id }}">
+          <td>{{ match.date }}</td>
+          <td>{{ match.game_type }}</td>
+          <td>{{ match.map }}</td>
+          <td><span class="pill {{ match.outcome_class }}">{{ match.outcome }}</span></td>
+          <td class="{{ match.kills_heat }}">{{ match.kills }}</td>
+          <td class="{{ match.deaths_heat }}">{{ match.deaths }}</td>
+          <td class="{{ match.assists_heat }}">{{ match.assists }}</td>
+          <td class="{{ match.kda_heat }}">{{ match.kda }}</td>
+          <td class="{{ match.accuracy_heat }}">{{ match.accuracy }}</td>
+          <td>{{ match.pre_csr }}</td>
+          <td>{{ match.post_csr }}</td>
+          <td class="{{ match.csr_delta_heat }}">{{ match.csr_delta }}</td>
+        </tr>
+        <tr class="match-details hidden" id="details-{{ match.match_id }}">
+          <td colspan="12">
+            <div class="match-detail-grid">
+              <div class="detail-section">
+                <h4>Damage</h4>
+                <div class="detail-row"><span>Dealt:</span> <span>{{ match.damage_dealt }}</span></div>
+                <div class="detail-row"><span>Taken:</span> <span>{{ match.damage_taken }}</span></div>
+                <div class="detail-row"><span>Difference:</span> <span class="{{ match.dmg_diff_heat }}">{{ match.dmg_diff }}</span></div>
+              </div>
+              <div class="detail-section">
+                <h4>Gunplay</h4>
+                <div class="detail-row"><span>Shots Fired:</span> <span>{{ match.shots_fired }}</span></div>
+                <div class="detail-row"><span>Shots Hit:</span> <span>{{ match.shots_hit }}</span></div>
+                <div class="detail-row"><span>Headshots:</span> <span>{{ match.headshots }}</span></div>
+              </div>
+              <div class="detail-section">
+                <h4>Performance</h4>
+                <div class="detail-row"><span>Score:</span> <span>{{ match.score }}</span></div>
+                <div class="detail-row"><span>Medals:</span> <span>{{ match.medals }}</span></div>
+                <div class="detail-row"><span>Avg Life:</span> <span>{{ match.avg_life }}s</span></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="12" class="empty">No match history available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Best Maps</h2>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Map</th>
+          <th>Games</th>
+          <th title="Win percentage">Win %</th>
+          <th title="Average KDA on this map">Avg KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if map_stats %}
+        {% for row in map_stats %}
+        <tr>
+          <td>{{ row.map }}</td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="4" class="empty">No map data</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Teammate Synergy</h2>
+  <p class="muted">Performance when playing with other tracked players</p>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Teammate</th>
+          <th title="Games played together">Games</th>
+          <th title="Win rate when playing together">Win %</th>
+          <th title="Your average KDA when playing with this teammate">Your KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if teammate_stats %}
+        {% for row in teammate_stats %}
+        <tr>
+          <td><a href="/player/{{ row.teammate }}">{{ row.teammate }}</a></td>
+          <td>{{ row.games }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="4" class="empty">No teammate data available</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// CSR History Chart
+const csrData = {{ csr_history|tojson|safe }};
+if (csrData && csrData.length > 0) {
+  const ctx = document.getElementById('csrChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: csrData.map(d => d.date),
+      datasets: [{
+        label: 'CSR',
+        data: csrData.map(d => d.csr),
+        borderColor: '#3dbfb8',
+        backgroundColor: 'rgba(61, 191, 184, 0.1)',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return 'CSR: ' + context.parsed.y;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#9a8f82' }
+        }
+      }
+    }
+  });
+}
+
+const playerWinCorr = {{ player_win_corr|default([])|tojson|safe }};
+if (playerWinCorr && playerWinCorr.length > 0) {
+  const ctx = document.getElementById('playerWinCorrChart').getContext('2d');
+  const labels = playerWinCorr.map(row => row.stat);
+  const values = playerWinCorr.map(row => row.corr);
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Correlation',
+        data: values,
+        backgroundColor: values.map(value => value >= 0 ? 'rgba(61, 191, 184, 0.6)' : 'rgba(255, 122, 61, 0.6)'),
+        borderColor: values.map(value => value >= 0 ? '#3dbfb8' : '#ff7a3d'),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Corr: ${context.parsed.x.toFixed(3)}`
+          }
+        }
+      },
+      scales: {
+        x: { min: -1, max: 1, grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#9a8f82' } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+      }
+    }
+  });
+}
+
+// Expandable match rows
+document.querySelectorAll('.expandable-row').forEach(row => {
+  row.addEventListener('click', function() {
+    const matchId = this.dataset.matchId;
+    const details = document.getElementById('details-' + matchId);
+    if (details) {
+      details.classList.toggle('hidden');
+      this.classList.toggle('expanded');
+    }
+  });
+});
+</script>
+{% endblock %}

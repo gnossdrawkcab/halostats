@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>👑 Scrim Kings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .site-header h1 {
+        background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="header-left">
+        <a class="site-logo" href="/">{{ app_title }}</a>
+        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false">☰</button>
+        <nav class="site-nav" id="siteNav">
+          <div class="nav-group">
+            <span class="nav-label">Session ▾</span>
+            <div class="nav-menu">
+              <a class="nav-link" href="/">Dashboard</a>
+              <a class="nav-link" href="/advanced">Advanced</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Players ▾</span>
+            <div class="nav-menu">
+              {% if players %}
+                {% for p in players %}
+                <a class="nav-link player-name {{ p|player_class }}" href="/player/{{ p }}">{{ p }}</a>
+                {% endfor %}
+              {% else %}
+                <span class="nav-link" style="color: var(--muted);">No players yet</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Lifetime ▾</span>
+            <div class="nav-menu">
+              <a class="nav-link" href="/lifetime">All Games</a>
+              <a class="nav-link" href="/weapons">Gunplay</a>
+              <a class="nav-link" href="/maps">Maps & Modes</a>
+            </div>
+          </div>
+          <div class="nav-group">
+            <span class="nav-label">Analysis ▾</span>
+          <div class="nav-menu">
+            <a class="nav-link" href="/highlights">Highlights</a>
+            <a class="nav-link" href="/medals">Medals</a>
+            <a class="nav-link" href="/hall">Hall of Fame</a>
+            <a class="nav-link" href="/trends">Trends</a>
+            <a class="nav-link" href="/insights">Insights</a>
+          </div>
+        </div>
+          <div class="nav-group">
+            <span class="nav-label">Community ▾</span>
+            <div class="nav-menu">
+              <a class="nav-link" href="/leaderboard">Leaderboard</a>
+              <a class="nav-link" href="/suggestions">Suggestions</a>
+              <a class="nav-link" href="/settings">Settings</a>
+              <a class="nav-link" href="/columns">Columns</a>
+            </div>
+          </div>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="header-info">
+          {% if last_update %}<span>{{ last_update }}</span>{% endif %}
+          <span>{{ db_row_count }} matches</span>
+          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+          <div class="export-dropdown">
+            {% set export_player = request.args.get('player', 'all') %}
+            {% set export_playlist = request.args.get('playlist', 'all') %}
+            {% set export_mode = request.args.get('mode', 'all') %}
+            <button class="btn btn-small" onclick="toggleExport()">Export ▾</button>
+            <div class="export-menu" id="exportMenu">
+              <a href="{{ url_for('export_data', format='csv', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📄 CSV</a>
+              <a href="{{ url_for('export_data', format='json', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📋 JSON</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="panel-grid csr-top-row">
+        <div class="panel">
+          <h2>CSR Overview</h2>
+          <div class="table-wrap no-table-nav">
+            <table class="data-table compact" data-table="csr-overview">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Status</th>
+                  <th title="CSR at the start of the most recent gaming session">Session Start</th>
+                  <th title="Current Competitive Skill Rating">CSR</th>
+                  <th title="CSR change during the current session">Delta</th>
+                  <th title="CSR change over last 7 days">7d</th>
+                  <th title="CSR change over last 30 days">30d</th>
+                  <th title="CSR change over last 90 days">90d</th>
+                  <th title="Distance from 1700 CSR">1700?</th>
+                  <th title="Highest CSR ever achieved">Max</th>
+                  <th title="Date when max CSR was achieved">Max Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if csr_overview_rows %}
+                {% for row in csr_overview_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td>
+                    <span class="status-dot" data-last-match="{{ row.last_match_iso }}"></span>
+                  </td>
+                  <td class="{{ row.session_start_csr_heat }}">{{ row.session_start_csr }}</td>
+                  <td class="{{ row.current_csr_heat }}">{{ row.current_csr }}</td>
+                  <td class="{{ row.session_csr_change_heat }}">{{ row.session_csr_change }}</td>
+                  <td class="{{ row.delta_7_heat }}">{{ row.delta_7 }}</td>
+                  <td class="{{ row.delta_30_heat }}">{{ row.delta_30 }}</td>
+                  <td class="{{ row.delta_90_heat }}">{{ row.delta_90 }}</td>
+                  <td class="{{ row.target_delta_heat }}">{{ row.target_delta }}</td>
+                  <td class="{{ row.max_csr_heat }}">{{ row.max_csr }}</td>
+                  <td>{{ row.max_csr_date }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                  <td colspan="11" class="empty">No CSR data yet</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>CSR Trend (Last 90 Days)</h2>
+          {% if csr_overview_trends %}
+          <div class="chart-container csr-trend-panel">
+            <canvas id="csrOverviewTrend"></canvas>
+          </div>
+          {% else %}
+          <p class="help-text">No CSR trend data yet.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Last Ranked Arena Session</h2>
+        <div class="table-scroll-container" id="rankedArenaScroll">
+          <table class="data-table" data-table="ranked-arena" style="min-width: 1800px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Date of the gaming session">Date</th>
+                <th title="Current CSR after session">CSR</th>
+                <th title="Number of games played">Gms</th>
+                <th title="Win percentage">Win%</th>
+                <th title="Average kills per game">K</th>
+                <th title="Average deaths per game">D</th>
+                <th title="Average assists per game">A</th>
+                <th title="Kill/Death ratio (Kills ÷ Deaths)">KD1</th>
+                <th title="Extended KD ratio ((Kills + Assists) ÷ Deaths)">KD2</th>
+                <th title="KDA formula: Kills + (Assists/3) - Deaths">KDA</th>
+                <th title="Average damage dealt per game">Dmg +</th>
+                <th title="Average damage taken per game">Dmg -</th>
+                <th title="Damage difference (dealt - taken)">Dmg Dif</th>
+                <th title="Damage dealt per Kill+Assist">Dmg/KA</th>
+                <th title="Damage dealt per Death">Dmg/D</th>
+                <th title="Damage dealt per minute">Dmg/m</th>
+                <th title="Your damage as % of team total">Dmg %</th>
+                <th title="Your damage as % of enemy team total">Dmg %-</th>
+                <th title="Total shots fired">Fired</th>
+                <th title="Total shots that hit">Landed</th>
+                <th title="Accuracy percentage">Acc.</th>
+                <th title="Average score per game">Score</th>
+                <th title="Objective score (personal score minus combat bonuses)">Obj Score</th>
+                <th title="Your score as % of team total">Score %</th>
+                <th title="Average medals earned per game">Medals</th>
+                <th title="Average life duration in seconds">Lifetime</th>
+                <th title="Callout assists per game">Callouts</th>
+                <th title="CSR before the session">PreCSR</th>
+                <th title="CSR after the session">PostCSR</th>
+                <th title="CSR change during session">CSR Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if ranked_arena_rows %}
+              {% for row in ranked_arena_rows %}
+              <tr>
+                <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                <td>{{ row.session_date }}</td>
+                <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                <td>{{ row.pre_csr }}</td>
+                <td>{{ row.post_csr }}</td>
+                <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="31" class="empty">No Ranked Arena session data yet</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Ranked Arena - Last 30 Days</h2>
+        <div class="table-wrap" style="overflow-x: auto;">
+          <table class="data-table" data-table="ranked-30day" style="min-width: 1800px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Current CSR">CSR</th>
+                <th title="Number of games played">GMS</th>
+                <th title="Win percentage">WIN%</th>
+                <th title="Average kills per game">K</th>
+                <th title="Average deaths per game">D</th>
+                <th title="Average assists per game">A</th>
+                <th title="Kill/Death ratio">KD1</th>
+                <th title="Extended KD ratio">KD2</th>
+                <th title="KDA formula">KDA</th>
+                <th title="Average damage dealt per game">DMG +</th>
+                <th title="Average damage taken per game">DMG -</th>
+                <th title="Damage difference">DMG DIF</th>
+                <th title="Damage dealt per Kill+Assist">DMG/KA</th>
+                <th title="Damage dealt per Death">DMG/D</th>
+                <th title="Damage dealt per minute">DMG/M</th>
+                <th title="Your damage as % of team total">DMG %</th>
+                <th title="Your damage as % of enemy team total">DMG %-</th>
+                <th title="Total shots fired">FIRED</th>
+                <th title="Total shots that hit">LANDED</th>
+                <th title="Accuracy percentage">ACC.</th>
+                <th title="Average score per game">SCORE</th>
+                <th title="Objective score (personal score minus combat bonuses)">OBJ SCORE</th>
+                <th title="Your score as % of team total">SCORE %</th>
+                <th title="Average medals earned per game">MEDALS</th>
+                <th title="Average life duration">LIFETIME</th>
+                <th title="Callout assists per game">CALLOUTS</th>
+                <th title="CSR at start of 30-day period">PRECSR</th>
+                <th title="CSR at end of 30-day period">POSTCSR</th>
+                <th title="CSR change over 30 days">CSR Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if ranked_arena_30day_rows %}
+                {% for row in ranked_arena_30day_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>{{ row.pre_csr }}</td>
+                  <td>{{ row.post_csr }}</td>
+                  <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="30" class="empty">No Ranked Arena matches in the last 30 days</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Ranked Arena - Lifetime</h2>
+        <div class="table-wrap" style="overflow-x: auto;">
+          <table class="data-table" data-table="ranked-lifetime" style="min-width: 1800px;">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th title="Current CSR">CSR</th>
+                <th title="Number of games played">GMS</th>
+                <th title="Win percentage">WIN%</th>
+                <th title="Average kills per game">K</th>
+                <th title="Average deaths per game">D</th>
+                <th title="Average assists per game">A</th>
+                <th title="Kill/Death ratio">KD1</th>
+                <th title="Extended KD ratio">KD2</th>
+                <th title="KDA formula">KDA</th>
+                <th title="Average damage dealt per game">DMG +</th>
+                <th title="Average damage taken per game">DMG -</th>
+                <th title="Damage difference">DMG DIF</th>
+                <th title="Damage dealt per Kill+Assist">DMG/KA</th>
+                <th title="Damage dealt per Death">DMG/D</th>
+                <th title="Damage dealt per minute">DMG/M</th>
+                <th title="Your damage as % of team total">DMG %</th>
+                <th title="Your damage as % of enemy team total">DMG %-</th>
+                <th title="Total shots fired">FIRED</th>
+                <th title="Total shots that hit">LANDED</th>
+                <th title="Accuracy percentage">ACC.</th>
+                <th title="Average score per game">SCORE</th>
+                <th title="Objective score (personal score minus combat bonuses)">OBJ SCORE</th>
+                <th title="Your score as % of team total">SCORE %</th>
+                <th title="Average medals earned per game">MEDALS</th>
+                <th title="Average life duration">LIFETIME</th>
+                <th title="Callout assists per game">CALLOUTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if ranked_arena_lifetime_rows %}
+                {% for row in ranked_arena_lifetime_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="27" class="empty">No Ranked Arena matches</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      
+      <section class="panel-grid">
+        <div class="panel">
+          <h3>Map Performance</h3>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Map</th>
+                  <th>Matches</th>
+                  <th>Win Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if map_rows %}
+                {% for row in map_rows %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td class="{{ row.matches_heat }}">{{ row.matches }}</td>
+                  <td class="{{ row.win_rate_heat }}">{{ row.win_rate }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                  <td colspan="3" class="empty">No data yet</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <div class="panel">
+          <h3>Outlier Spotlight</h3>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Outlier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if outlier_rows %}
+                {% for row in outlier_rows %}
+                  <tr>
+                    <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                    <td>
+                      {% for item in row.highlights %}
+                      <div class="outlier-item">{{ item }}</div>
+                      {% endfor %}
+                    </td>
+                  </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                  <td colspan="2" class="empty">No data yet</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script>
+      const csrOverviewTrends = {{ csr_overview_trends|tojson|safe }};
+      const csrTrendCanvas = document.getElementById('csrOverviewTrend');
+      if (csrTrendCanvas && csrOverviewTrends && Object.keys(csrOverviewTrends).length > 0 && typeof Chart !== 'undefined') {
+        const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
+        const playerColors = [
+          { key: 'zaidster', color: '#228b22' },
+          { key: '0cty', color: '#ffd700' },
+          { key: 'octy', color: '#ffd700' },
+          { key: 'viper', color: '#4169e1' },
+          { key: 'jordo', color: '#c0c0c0' },
+          { key: 'p1n1', color: '#dc3545' },
+          { key: 'pini', color: '#dc3545' }
+        ];
+
+        const hexToRgb = (hex) => {
+          const clean = hex.replace('#', '').trim();
+          if (clean.length !== 6) return null;
+          const r = parseInt(clean.slice(0, 2), 16);
+          const g = parseInt(clean.slice(2, 4), 16);
+          const b = parseInt(clean.slice(4, 6), 16);
+          return { r, g, b };
+        };
+
+        const withAlpha = (hex, alpha) => {
+          const rgb = hexToRgb(hex);
+          if (!rgb) return hex;
+          return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+        };
+
+        const getPlayerColor = (player, fallback) => {
+          const name = String(player || '').toLowerCase();
+          const match = playerColors.find(entry => name.includes(entry.key));
+          return match ? match.color : fallback;
+        };
+
+        const labels = Array.from(
+          new Set(
+            Object.values(csrOverviewTrends).flatMap(series => series.map(point => point.date))
+          )
+        ).sort((a, b) => a.localeCompare(b));
+
+        const targetLine = {
+          label: '1700',
+          data: labels.map((date) => ({ x: date, y: 1700 })),
+          borderColor: 'rgba(255, 215, 0, 0.7)',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          fill: false
+        };
+
+        const datasets = Object.entries(csrOverviewTrends).map(([player, series], index) => {
+          const color = getPlayerColor(player, chartColors[index % chartColors.length]);
+          return {
+            label: player,
+            data: series.map(point => ({ x: point.date, y: point.csr })),
+            borderColor: color,
+            backgroundColor: withAlpha(color, 0.2),
+            fill: false,
+            tension: 0.2,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            spanGaps: true
+          };
+        });
+
+        new Chart(csrTrendCanvas.getContext('2d'), {
+          type: 'line',
+          data: { labels, datasets: [targetLine, ...datasets] },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: 'nearest' },
+            plugins: { legend: { labels: { color: '#e8dfd3' } } },
+            scales: {
+              x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82', maxTicksLimit: 8 } },
+              y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } }
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
