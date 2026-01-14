@@ -2,7 +2,7 @@ services:
   halostats:
     build: .
     container_name: halostats
-    command: ["python", "entrypoint.py"]
+    command: ["python", "/app/src/entrypoint.py"]
     volumes:
       - .:/app
       - /mnt/user/appdata/halo:/data
@@ -28,7 +28,7 @@ services:
   halo-web:
     build: .
     container_name: halo-web
-    command: ["python", "src/webapp.py"]
+    command: ["python", "/app/src/webapp.py"]
     ports:
       - "8091:8091"
     volumes:

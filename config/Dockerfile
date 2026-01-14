@@ -24,8 +24,5 @@ COPY . .
 # Set the PYTHONPATH to include the src directory
 ENV PYTHONPATH=/app/src:$PYTHONPATH
 
-# Set the working directory to src for running scripts
-WORKDIR /app/src
-
-# Set the default command
-CMD ["python", "entrypoint.py"]
+# Set the default command (will be overridden by compose)
+CMD ["python", "/app/src/entrypoint.py"]
