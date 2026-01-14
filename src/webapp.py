@@ -1146,20 +1146,32 @@ def build_ranked_arena_30day(df: pd.DataFrame) -> list:
         stats = calculate_player_stats(player_df, games)
         
         latest_csr = None
+        pre_csr = None
+        post_csr = None
         if 'post_match_csr' in player_df.columns:
             sorted_df = player_df.sort_values('date', ascending=False)
             post_vals = pd.to_numeric(sorted_df['post_match_csr'], errors='coerce')
             post_vals = post_vals[post_vals > 0]
             if not post_vals.empty:
                 latest_csr = post_vals.iloc[0]
+                post_csr = post_vals.iloc[0]
+        
+        if 'pre_match_csr' in player_df.columns:
+            sorted_df = player_df.sort_values('date')
+            pre_vals = pd.to_numeric(sorted_df['pre_match_csr'], errors='coerce')
+            pre_vals = pre_vals[pre_vals > 0]
+            if not pre_vals.empty:
+                pre_csr = pre_vals.iloc[0]
+        
+        csr_delta = (post_csr - pre_csr) if pre_csr and post_csr else 0
         
         row = format_player_stats_row(player, games, wins, stats, latest_csr)
+        row['pre_csr'] = format_int(pre_csr) if pre_csr else '-'
+        row['post_csr'] = format_int(post_csr) if post_csr else '-'
+        row['csr_delta'] = format_signed(csr_delta, 0)
         rows.append(row)
     
     add_heatmap_classes(rows, FULL_HEATMAP_CONFIG)
-    rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
-    return rows
-    
     rows.sort(key=lambda x: to_number(x['kda']) or 0, reverse=True)
     return rows
 
@@ -1639,16 +1651,16 @@ def build_objective_stats(df: pd.DataFrame, period: str = 'all') -> list:
         avg_obj = total_obj / games if games else 0
         
         # CTF specific
-        ctf_caps = pd.to_numeric(player_df.get('capture_the_flag_stats_flag_captures', 0), errors='coerce').fillna(0).sum()
-        ctf_returns = pd.to_numeric(player_df.get('capture_the_flag_stats_flag_returns', 0), errors='coerce').fillna(0).sum()
+        ctf_caps = pd.to_numeric(player_df['capture_the_flag_stats_flag_captures'], errors='coerce').fillna(0).sum() if 'capture_the_flag_stats_flag_captures' in player_df.columns else 0
+        ctf_returns = pd.to_numeric(player_df['capture_the_flag_stats_flag_returns'], errors='coerce').fillna(0).sum() if 'capture_the_flag_stats_flag_returns' in player_df.columns else 0
         
         # Oddball specific
-        oddball_time = pd.to_numeric(player_df.get('oddball_stats_time_as_skull_carrier_seconds', 0), errors='coerce').fillna(0).sum()
-        oddball_kills = pd.to_numeric(player_df.get('oddball_stats_kills_as_skull_carrier', 0), errors='coerce').fillna(0).sum()
+        oddball_time = pd.to_numeric(player_df['oddball_stats_time_as_skull_carrier'], errors='coerce').fillna(0).sum() if 'oddball_stats_time_as_skull_carrier' in player_df.columns else 0
+        oddball_kills = pd.to_numeric(player_df['oddball_stats_kills_as_skull_carrier'], errors='coerce').fillna(0).sum() if 'oddball_stats_kills_as_skull_carrier' in player_df.columns else 0
         
         # Zones specific
-        zones_caps = pd.to_numeric(player_df.get('zones_stats_total_zone_captures', 0), errors='coerce').fillna(0).sum()
-        zones_time = pd.to_numeric(player_df.get('zones_stats_total_zone_occupation_time_seconds', 0), errors='coerce').fillna(0).sum()
+        zones_caps = pd.to_numeric(player_df['zones_stats_stronghold_captures'], errors='coerce').fillna(0).sum() if 'zones_stats_stronghold_captures' in player_df.columns else 0
+        zones_time = pd.to_numeric(player_df['zones_stats_stronghold_occupation_time'], errors='coerce').fillna(0).sum() if 'zones_stats_stronghold_occupation_time' in player_df.columns else 0
         
         rows.append({
             'player': player,
@@ -1686,7 +1698,7 @@ def build_medal_stats(df: pd.DataFrame) -> tuple[list, list]:
             continue
         
         games = len(player_df)
-        total_medals = pd.to_numeric(player_df.get('medal_count', 0), errors='coerce').fillna(0).sum()
+        total_medals = pd.to_numeric(player_df['medal_count'], errors='coerce').fillna(0).sum() if 'medal_count' in player_df.columns else 0
         avg_medals = total_medals / games if games else 0
         
         player_rows.append({
