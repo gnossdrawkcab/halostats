@@ -1,98 +1,23 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>👑 Scrim Kings</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-      .site-header h1 {
-        background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
-      }
-    </style>
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="header-left">
-        <a class="site-logo" href="/">{{ app_title }}</a>
-        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false">☰</button>
-        <nav class="site-nav" id="siteNav">
-          <div class="nav-group">
-            <span class="nav-label">Session ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/">Dashboard</a>
-              <a class="nav-link" href="/advanced">Advanced</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Players ▾</span>
-            <div class="nav-menu">
-              {% if players %}
-                {% for p in players %}
-                <a class="nav-link player-name {{ p|player_class }}" href="/player/{{ p }}">{{ p }}</a>
-                {% endfor %}
-              {% else %}
-                <span class="nav-link" style="color: var(--muted);">No players yet</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Lifetime ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/lifetime">All Games</a>
-              <a class="nav-link" href="/weapons">Gunplay</a>
-              <a class="nav-link" href="/maps">Maps & Modes</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Analysis ▾</span>
-          <div class="nav-menu">
-            <a class="nav-link" href="/highlights">Highlights</a>
-            <a class="nav-link" href="/medals">Medals</a>
-            <a class="nav-link" href="/hall">Hall of Fame</a>
-            <a class="nav-link" href="/trends">Trends</a>
-            <a class="nav-link" href="/insights">Insights</a>
-          </div>
-        </div>
-          <div class="nav-group">
-            <span class="nav-label">Community ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/leaderboard">Leaderboard</a>
-              <a class="nav-link" href="/suggestions">Suggestions</a>
-              <a class="nav-link" href="/settings">Settings</a>
-              <a class="nav-link" href="/columns">Columns</a>
-            </div>
-          </div>
-        </nav>
-      </div>
-      <div class="header-right">
-        <div class="header-info">
-          {% if last_update %}<span>{{ last_update }}</span>{% endif %}
-          <span>{{ db_row_count }} matches</span>
-          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
-          <div class="export-dropdown">
-            {% set export_player = request.args.get('player', 'all') %}
-            {% set export_playlist = request.args.get('playlist', 'all') %}
-            {% set export_mode = request.args.get('mode', 'all') %}
-            <button class="btn btn-small" onclick="toggleExport()">Export ▾</button>
-            <div class="export-menu" id="exportMenu">
-              <a href="{{ url_for('export_data', format='csv', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📄 CSV</a>
-              <a href="{{ url_for('export_data', format='json', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📋 JSON</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="page">
-      <section class="panel-grid csr-top-row">
+{% block title %}{{ app_title }}{% endblock %}
+
+{% block head %}
+<style>
+  .site-header h1 {
+    background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="panel-grid csr-top-row">
         <div class="panel">
-          <h2>CSR Overview</h2>
+        <div class="panel-header"><h2>CSR Overview</h2></div>
           <div class="table-wrap no-table-nav">
             <table class="data-table compact" data-table="csr-overview">
               <thead>
@@ -140,7 +65,7 @@
         </div>
 
         <div class="panel">
-          <h2>CSR Trend (Last 90 Days)</h2>
+        <div class="panel-header"><h2>CSR Trend (Last 90 Days)</h2></div>
           {% if csr_overview_trends %}
           <div class="chart-container csr-trend-panel">
             <canvas id="csrOverviewTrend"></canvas>
@@ -152,7 +77,7 @@
       </section>
 
       <section class="panel">
-        <h2>Last Ranked Arena Session</h2>
+        <div class="panel-header"><h2>Last Ranked Arena Session</h2></div>
         <div class="table-scroll-container" id="rankedArenaScroll">
           <table class="data-table" data-table="ranked-arena" style="min-width: 1800px;">
             <thead>
@@ -193,9 +118,9 @@
             <tbody>
               {% if ranked_arena_rows %}
               {% for row in ranked_arena_rows %}
-              <tr>
+              <tr onclick="window.location.href='/match/{{ row.match_id }}';" style="cursor: pointer;">
                 <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
-                <td>{{ row.session_date }}</td>
+                <td><a href="/match/{{ row.match_id }}">{{ row.session_date }}</a></td>
                 <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
                 <td class="{{ row.games_heat }}">{{ row.games }}</td>
                 <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
@@ -238,9 +163,19 @@
       </section>
 
       <section class="panel">
-        <h2>Ranked Arena - Last 30 Days</h2>
+        <div class="panel-header">
+          <h2>Ranked Arena Stats</h2>
+          <div class="timeline-selector" role="group" aria-label="Timeline">
+            <button class="btn btn-small timeline-btn active" type="button" data-timeline="30day">30-day</button>
+            <button class="btn btn-small timeline-btn" type="button" data-timeline="90day">90-day</button>
+            <button class="btn btn-small timeline-btn" type="button" data-timeline="180day">180-day</button>
+            <button class="btn btn-small timeline-btn" type="button" data-timeline="1y">1-year</button>
+            <button class="btn btn-small timeline-btn" type="button" data-timeline="2y">2-year</button>
+            <button class="btn btn-small timeline-btn" type="button" data-timeline="lifetime">Lifetime</button>
+          </div>
+        </div>
         <div class="table-wrap" style="overflow-x: auto;">
-          <table class="data-table" data-table="ranked-30day" style="min-width: 1800px;">
+          <table class="data-table" data-table="ranked-summary" style="min-width: 1800px;">
             <thead>
               <tr>
                 <th>Player</th>
@@ -270,12 +205,12 @@
                 <th title="Average medals earned per game">MEDALS</th>
                 <th title="Average life duration">LIFETIME</th>
                 <th title="Callout assists per game">CALLOUTS</th>
-                <th title="CSR at start of 30-day period">PRECSR</th>
-                <th title="CSR at end of 30-day period">POSTCSR</th>
-                <th title="CSR change over 30 days">CSR Δ</th>
+                <th title="CSR at start of period">PRECSR</th>
+                <th title="CSR at end of period">POSTCSR</th>
+                <th title="CSR change over period">CSR Δ</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody id="timeline-30day" class="timeline-tbody">
               {% if ranked_arena_30day_rows %}
                 {% for row in ranked_arena_30day_rows %}
                 <tr>
@@ -317,46 +252,175 @@
               </tr>
               {% endif %}
             </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Ranked Arena - Lifetime</h2>
-        <div class="table-wrap" style="overflow-x: auto;">
-          <table class="data-table" data-table="ranked-lifetime" style="min-width: 1800px;">
-            <thead>
+            <tbody id="timeline-90day" class="timeline-tbody" style="display: none;">
+              {% if ranked_arena_90day_rows %}
+                {% for row in ranked_arena_90day_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>{{ row.pre_csr }}</td>
+                  <td>{{ row.post_csr }}</td>
+                  <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
               <tr>
-                <th>Player</th>
-                <th title="Current CSR">CSR</th>
-                <th title="Number of games played">GMS</th>
-                <th title="Win percentage">WIN%</th>
-                <th title="Average kills per game">K</th>
-                <th title="Average deaths per game">D</th>
-                <th title="Average assists per game">A</th>
-                <th title="Kill/Death ratio">KD1</th>
-                <th title="Extended KD ratio">KD2</th>
-                <th title="KDA formula">KDA</th>
-                <th title="Average damage dealt per game">DMG +</th>
-                <th title="Average damage taken per game">DMG -</th>
-                <th title="Damage difference">DMG DIF</th>
-                <th title="Damage dealt per Kill+Assist">DMG/KA</th>
-                <th title="Damage dealt per Death">DMG/D</th>
-                <th title="Damage dealt per minute">DMG/M</th>
-                <th title="Your damage as % of team total">DMG %</th>
-                <th title="Your damage as % of enemy team total">DMG %-</th>
-                <th title="Total shots fired">FIRED</th>
-                <th title="Total shots that hit">LANDED</th>
-                <th title="Accuracy percentage">ACC.</th>
-                <th title="Average score per game">SCORE</th>
-                <th title="Objective score (personal score minus combat bonuses)">OBJ SCORE</th>
-                <th title="Your score as % of team total">SCORE %</th>
-                <th title="Average medals earned per game">MEDALS</th>
-                <th title="Average life duration">LIFETIME</th>
-                <th title="Callout assists per game">CALLOUTS</th>
+                <td colspan="30" class="empty">No Ranked Arena matches in the last 90 days</td>
               </tr>
-            </thead>
-            <tbody>
+              {% endif %}
+            </tbody>
+            <tbody id="timeline-180day" class="timeline-tbody" style="display: none;">
+              {% if ranked_arena_180day_rows %}
+                {% for row in ranked_arena_180day_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>{{ row.pre_csr }}</td>
+                  <td>{{ row.post_csr }}</td>
+                  <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="30" class="empty">No Ranked Arena matches in the last 180 days</td>
+              </tr>
+              {% endif %}
+            </tbody>
+            <tbody id="timeline-1y" class="timeline-tbody" style="display: none;">
+              {% if ranked_arena_1y_rows %}
+                {% for row in ranked_arena_1y_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>{{ row.pre_csr }}</td>
+                  <td>{{ row.post_csr }}</td>
+                  <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="30" class="empty">No Ranked Arena matches in the last year</td>
+              </tr>
+              {% endif %}
+            </tbody>
+            <tbody id="timeline-2y" class="timeline-tbody" style="display: none;">
+              {% if ranked_arena_2y_rows %}
+                {% for row in ranked_arena_2y_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
+                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
+                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
+                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
+                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
+                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
+                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
+                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
+                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
+                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
+                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
+                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
+                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
+                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
+                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
+                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
+                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
+                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
+                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
+                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
+                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
+                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>{{ row.pre_csr }}</td>
+                  <td>{{ row.post_csr }}</td>
+                  <td class="{{ row.csr_delta_heat }}">{{ row.csr_delta }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="30" class="empty">No Ranked Arena matches in the last 2 years</td>
+              </tr>
+              {% endif %}
+            </tbody>
+            <tbody id="timeline-lifetime" class="timeline-tbody" style="display: none;">
               {% if ranked_arena_lifetime_rows %}
                 {% for row in ranked_arena_lifetime_rows %}
                 <tr>
@@ -387,11 +451,14 @@
                   <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
                   <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
                   <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
+                  <td>-</td>
+                  <td>-</td>
+                  <td>-</td>
                 </tr>
                 {% endfor %}
               {% else %}
               <tr>
-                <td colspan="27" class="empty">No Ranked Arena matches</td>
+                <td colspan="30" class="empty">No Ranked Arena matches</td>
               </tr>
               {% endif %}
             </tbody>
@@ -400,6 +467,40 @@
       </section>
 
       
+      <section class="panel">
+        <h2>Player Stat Trends (30d vs Lifetime)</h2>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>Stat</th>
+                <th>30-day</th>
+                <th>Lifetime</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if summary_rows %}
+                {% for row in summary_rows %}
+                <tr>
+                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                  <td>{{ row.stat }}</td>
+                  <td>{{ row.recent }}</td>
+                  <td>{{ row.lifetime }}</td>
+                  <td class="{{ row.trend_class }}">{{ row.trend }}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="5" class="empty">No summary data yet</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel-grid">
         <div class="panel">
           <h3>Map Performance</h3>
@@ -463,11 +564,11 @@
           </div>
         </div>
       </section>
-    </main>
+{% endblock %}
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-    <script>
-      const csrOverviewTrends = {{ csr_overview_trends|tojson|safe }};
+{% block scripts %}
+<script>
+const csrOverviewTrends = {{ csr_overview_trends|tojson|safe }};
       const csrTrendCanvas = document.getElementById('csrOverviewTrend');
       if (csrTrendCanvas && csrOverviewTrends && Object.keys(csrOverviewTrends).length > 0 && typeof Chart !== 'undefined') {
         const chartColors = ['#3dbfb8', '#ff7a3d', '#ffd700', '#86efac', '#fca5a5', '#c4b5fd'];
@@ -550,6 +651,5 @@
           }
         });
       }
-    </script>
-  </body>
-</html>
+</script>
+{% endblock %}

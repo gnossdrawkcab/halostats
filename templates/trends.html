@@ -25,7 +25,7 @@
 </section>
 
 <section class="panel">
-  <h2>Win Rate Trends (7-Day Rolling)</h2>
+  <h2>Win Rate Trends (Cumulative Average)</h2>
   <div class="chart-container" style="height: 400px;">
     <canvas id="winRateTrendChart"></canvas>
   </div>
@@ -204,7 +204,51 @@ const getTrendRange = (trends, valueKey, padding = 0.1, bounds = null) => {
   }
   return { min, max };
 };
-const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}) => {
+const playerMoments = {{ player_moments|default({})|tojson|safe }};
+const momentStyles = {
+  tilt: { pointStyle: 'triangle', radius: 6 },
+  tilt_window: { pointStyle: 'triangle', radius: 4 },
+  clutch: { pointStyle: 'star', radius: 6 },
+  carry: { pointStyle: 'rectRounded', radius: 6 },
+  heroic: { pointStyle: 'cross', radius: 7 },
+  objective: { pointStyle: 'rectRot', radius: 6 },
+  silent: { pointStyle: 'circle', radius: 6 },
+  momentum: { pointStyle: 'rect', radius: 6 },
+  rivalry: { pointStyle: 'rect', radius: 5 }
+};
+
+const buildMomentDatasets = (momentKey) => {
+  const datasets = [];
+  if (!playerMoments || !momentKey) {
+    return datasets;
+  }
+  Object.entries(playerMoments).forEach(([player, events]) => {
+    const filtered = (events || []).filter(event => event.stat === momentKey);
+    if (!filtered.length) {
+      return;
+    }
+    const color = getPlayerColor(player, chartColors[datasets.length % chartColors.length]);
+    datasets.push({
+      label: `${player} moments`,
+      type: 'scatter',
+      data: filtered.map(event => ({
+        x: event.date,
+        y: event.value,
+        label: event.label,
+        type: event.type
+      })),
+      showLine: false,
+      pointBackgroundColor: color,
+      pointBorderColor: color,
+      pointRadius: filtered.map(event => (momentStyles[event.type]?.radius || 6)),
+      pointStyle: filtered.map(event => (momentStyles[event.type]?.pointStyle || 'circle')),
+      pointHoverRadius: 8
+    });
+  });
+  return datasets;
+};
+
+const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}, momentKey = null) => {
   if (!trends || Object.keys(trends).length === 0) {
     return;
   }
@@ -226,6 +270,9 @@ const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}) => {
     pointHoverRadius: 3,
     spanGaps: true
   }));
+  if (momentKey) {
+    datasets.push(...buildMomentDatasets(momentKey));
+  }
   const yScale = Object.assign(
     { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82' } },
     yOptions
@@ -237,7 +284,21 @@ const renderTrendChart = (canvasId, trends, valueKey, yOptions = {}) => {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { intersect: false, mode: 'nearest' },
-      plugins: { legend: { labels: { color: '#e8dfd3' } } },
+      plugins: {
+        legend: { labels: { color: '#e8dfd3' } },
+        tooltip: {
+          callbacks: {
+            label: (context) => {
+              const raw = context.raw || {};
+              if (raw.label) {
+                return raw.label;
+              }
+              const value = context.parsed.y;
+              return `${context.dataset.label}: ${value}`;
+            }
+          }
+        }
+      },
       scales: {
         x: { type: 'category', grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9a8f82', maxTicksLimit: 12, autoSkip: true } },
         y: yScale
@@ -250,16 +311,16 @@ const csrTrends = {{ csr_trends|tojson|safe }};
 renderTrendChart('csrTrendChart', csrTrends, 'csr');
 
 const winRateTrends = {{ win_rate_trends|tojson|safe }};
-renderTrendChart('winRateTrendChart', winRateTrends, 'win_rate', { min: 0, max: 100 });
+renderTrendChart('winRateTrendChart', winRateTrends, 'win_rate', { min: 0, max: 100 }, 'win_rate');
 
 const kdaTrends = {{ kda_trends|tojson|safe }};
-renderTrendChart('kdaTrendChart', kdaTrends, 'kda');
+renderTrendChart('kdaTrendChart', kdaTrends, 'kda', {}, 'kda');
 
 const objScoreTrends = {{ obj_score_trends|tojson|safe }};
-renderTrendChart('objScoreTrendChart', objScoreTrends, 'obj_score');
+renderTrendChart('objScoreTrendChart', objScoreTrends, 'obj_score', {}, 'obj_score');
 
 const damageMinTrends = {{ damage_min_trends|tojson|safe }};
-renderTrendChart('damageMinTrendChart', damageMinTrends, 'dmg_min');
+renderTrendChart('damageMinTrendChart', damageMinTrends, 'dmg_min', {}, 'dmg_min');
 
 const damageDiffTrends = {{ damage_diff_trends|tojson|safe }};
 renderTrendChart('damageDiffTrendChart', damageDiffTrends, 'dmg_diff');

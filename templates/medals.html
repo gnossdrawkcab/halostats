@@ -1,88 +1,77 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Medals - {{ app_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body>
-    {% include 'partials/nav.html' %}
+{% extends "base.html" %}
 
-    <main class="page">
-      <section class="panel">
-        <h2>Ranked Medals (Per Game)</h2>
-        <div class="table-wrap">
-          <table class="data-table" data-table="ranked-session-medals" style="font-size: 0.8rem;">
-            <thead>
-              <tr>
-                <th>Medal</th>
-                {% for player in ranked_arena_medal_players %}
-                <th>
-                  <a href="/player/{{ player }}" class="player-name {{ player|player_class }}">
-                    {{ player }}
-                  </a>
-                </th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% if ranked_arena_medal_rows %}
-              {% for row in ranked_arena_medal_rows %}
-              <tr>
-                <td>{{ row.medal }}</td>
-                {% for player in ranked_arena_medal_players %}
-                <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
-                {% endfor %}
-              </tr>
-              {% endfor %}
-              {% else %}
-              <tr>
-                <td colspan="{{ 1 + (ranked_arena_medal_players|length) }}" class="empty">No Ranked medal session data available</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </section>
+{% block title %}Medals - {{ app_title }}{% endblock %}
 
-      <section class="panel">
-        <h2>Medals (Lifetime Totals)</h2>
-        <div class="table-wrap">
-          <table class="data-table" data-table="medals-matrix" style="font-size: 0.8rem;">
-            <thead>
-              <tr>
-                <th>Medal</th>
-                {% for player in medal_players %}
-                <th>
-                  <a href="/player/{{ player }}" class="player-name {{ player|player_class }}">
-                    {{ player }}
-                  </a>
-                </th>
-                {% endfor %}
-              </tr>
-            </thead>
-            <tbody>
-              {% if medal_rows %}
-              {% for row in medal_rows %}
-              <tr>
-                <td>{{ row.medal }}</td>
-                {% for player in medal_players %}
-                <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
-                {% endfor %}
-              </tr>
-              {% endfor %}
-              {% else %}
-              <tr>
-                <td colspan="{{ 1 + (medal_players|length) }}" class="empty">No medal data available</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+{% block content %}
+  <section class="panel">
+    <h2>Ranked Medals (Per Game)</h2>
+    <div class="table-wrap">
+      <table class="data-table sticky-header" data-table="ranked-session-medals" style="font-size: 0.8rem;">
+        <thead>
+          <tr>
+            <th>Medal</th>
+            {% for player in ranked_arena_medal_players %}
+            <th>
+              <a href="/player/{{ player }}" class="player-name {{ player|player_class }}">
+                {{ player }}
+              </a>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if ranked_arena_medal_rows %}
+          {% for row in ranked_arena_medal_rows %}
+          <tr>
+              <td>{{ row.medal }}</td>
+            {% for player in ranked_arena_medal_players %}
+            <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="{{ 1 + (ranked_arena_medal_players|length) }}" class="empty">No Ranked medal session data available</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-  </body>
-</html>
+  <section class="panel">
+    <h2>Medals (Lifetime Totals)</h2>
+    <div class="table-wrap">
+      <table class="data-table sticky-header" data-table="medals-matrix" style="font-size: 0.8rem;">
+        <thead>
+          <tr>
+            <th>Medal</th>
+            {% for player in medal_players %}
+            <th>
+              <a href="/player/{{ player }}" class="player-name {{ player|player_class }}">
+                {{ player }}
+              </a>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% if medal_rows %}
+          {% for row in medal_rows %}
+          <tr>
+              <td>{{ row.medal }}</td>
+            {% for player in medal_players %}
+            <td class="{{ row[player ~ '_heat'] }}">{{ row[player] }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="{{ 1 + (medal_players|length) }}" class="empty">No medal data available</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

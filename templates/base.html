@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}{{ app_title }}{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css', v=static_version) }}" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block head %}{% endblock %}
   </head>
@@ -12,70 +12,86 @@
     <header class="site-header">
       <div class="header-left">
         <a class="site-logo" href="/">{{ app_title }}</a>
-        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false">☰</button>
-        <nav class="site-nav" id="siteNav">
-          <div class="nav-group">
-            <span class="nav-label">Session ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/">Dashboard</a>
-              <a class="nav-link" href="/advanced">Advanced</a>
+        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false">Menu</button>
+        <div class="nav-overlay" id="navOverlay" onclick="closeNav()" aria-hidden="true"></div>
+        <nav class="site-nav" id="siteNav" aria-label="Primary navigation">
+          <div class="nav-drawer">
+            <div class="nav-drawer-header">
+              <span class="nav-title">Navigate</span>
+              <button class="nav-close" type="button" onclick="closeNav()" aria-label="Close navigation">Close</button>
             </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Players ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/compare" style="color: var(--accent); font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 4px;">★ Compare All Players</a>
-              {% if players %}
-                {% for p in players %}
-                <a class="nav-link player-name {{ p|player_class }}" href="/player/{{ p }}">{{ p }}</a>
-                {% endfor %}
-              {% else %}
-                <span class="nav-link" style="color: var(--muted);">No players yet</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Lifetime ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/lifetime">All Games</a>
-              <a class="nav-link" href="/weapons">Gunplay</a>
-              <a class="nav-link" href="/maps">Maps & Modes</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Analysis ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/highlights">Highlights</a>
-              <a class="nav-link" href="/medals">Medals</a>
-              <a class="nav-link" href="/hall">Hall of Fame</a>
-              <a class="nav-link" href="/trends">Trends</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Community ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/leaderboard">Leaderboard</a>
-              <a class="nav-link" href="/suggestions">Suggestions</a>
-              <a class="nav-link" href="/settings">Settings</a>
-              <a class="nav-link" href="/columns">Columns</a>
+            <div class="nav-drawer-body">
+              <div class="nav-group">
+                <span class="nav-label">Session</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/">Dashboard</a>
+                  <a class="nav-link" href="/advanced">Advanced</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label">Players</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/compare">Compare Players</a>
+                  {% if players %}
+                    {% for p in players %}
+                    <a class="nav-link player-name {{ p|player_class }}" href="/player/{{ p }}">{{ p }}</a>
+                    {% endfor %}
+                  {% else %}
+                    <span class="nav-link" style="color: var(--muted);">No players yet</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label">Lifetime</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/lifetime">All Games</a>
+                  <a class="nav-link" href="/weapons">Gunplay</a>
+                  <a class="nav-link" href="/maps">Maps & Modes</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label">Analysis</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/highlights">Highlights</a>
+                  <a class="nav-link" href="/medals">Medals</a>
+                  <a class="nav-link" href="/hall">Hall of Fame</a>
+                  <a class="nav-link" href="/insights">Insights</a>
+                  <a class="nav-link" href="/trends">Trends</a>
+                </div>
+              </div>
+              <div class="nav-group">
+                <span class="nav-label">Community</span>
+                <div class="nav-menu">
+                  <a class="nav-link" href="/leaderboard">Leaderboard</a>
+                  <a class="nav-link" href="/suggestions">Suggestions</a>
+                  <a class="nav-link" href="/settings">Settings</a>
+                  <a class="nav-link" href="/columns">Columns</a>
+                </div>
+              </div>
             </div>
           </div>
         </nav>
       </div>
+
       <div class="header-right">
         <div class="header-info">
           {% if last_update %}<span>{{ last_update }}</span>{% endif %}
           <span>{{ db_row_count }} matches</span>
-          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+          <div class="density-toggle" role="group" aria-label="Table density">
+            <button class="density-btn" type="button" data-density="compact">Compact</button>
+            <button class="density-btn" type="button" data-density="balanced">Balanced</button>
+            <button class="density-btn" type="button" data-density="full">Full</button>
+          </div>
+          <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme"></button>
           {% if export_enabled|default(true) %}
           {% set export_player = request.args.get('player', 'all') %}
           {% set export_playlist = request.args.get('playlist', 'all') %}
           {% set export_mode = request.args.get('mode', 'all') %}
           <div class="export-dropdown">
-            <button class="btn btn-small" onclick="toggleExport()">Export ▾</button>
+            <button class="btn btn-small" onclick="toggleExport()">Export</button>
             <div class="export-menu" id="exportMenu">
-              <a href="{{ url_for('export_data', format='csv', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📄 CSV</a>
-              <a href="{{ url_for('export_data', format='json', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">📋 JSON</a>
+              <a href="{{ url_for('export_data', format='csv', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">CSV</a>
+              <a href="{{ url_for('export_data', format='json', player=export_player, playlist=export_playlist, mode=export_mode) }}" class="export-link">JSON</a>
             </div>
           </div>
           {% endif %}
@@ -87,11 +103,18 @@
       {% block content %}{% endblock %}
     </main>
 
+
     <footer class="site-footer">
-      <p>Scrim Kings Stats Tracker • Data refreshes every {{ update_interval|default(60) }}s</p>
+      <p>Scrim Kings Stats Tracker  Data refreshes every {{ update_interval|default(60) }}s</p>
     </footer>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script>
+      window.playerHoverData = {{ player_hover_data|default({})|tojson|safe }};
+    </script>
+
+
+
+    <script src="{{ url_for('static', filename='app.js', v=static_version) }}"></script>
     {% block scripts %}{% endblock %}
   </body>
 </html>

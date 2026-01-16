@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_title }} - Match {{ match_id }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+    <div class="panel-header">
+        <h2>Match Details</h2>
+    </div>
+    {% if error %}
+    <p class="empty">{{ error }}</p>
+    {% else %}
+    <div class="match-info">
+        <p><strong>Map:</strong> {{ map }}</p>
+        <p><strong>Game Type:</strong> {{ game_type }}</p>
+        <p><strong>Playlist:</strong> {{ playlist }}</p>
+        <p><strong>Date:</strong> {{ date }}</p>
+        <p><strong>Duration:</strong> {{ duration }}</p>
+    </div>
+
+    <h3>Scoreboard</h3>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Player</th>
+                    <th>Kills</th>
+                    <th>Deaths</th>
+                    <th>Assists</th>
+                    <th>KDA</th>
+                    <th>Accuracy</th>
+                    <th>Damage Dealt</th>
+                    <th>Damage Taken</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in scoreboard %}
+                <tr>
+                    <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
+                    <td>{{ row.kills }}</td>
+                    <td>{{ row.deaths }}</td>
+                    <td>{{ row.assists }}</td>
+                    <td>{{ row.kda }}</td>
+                    <td>{{ row.accuracy }}</td>
+                    <td>{{ row.dmg_plus }}</td>
+                    <td>{{ row.dmg_minus }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <h3>Medals</h3>
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Medal</th>
+                    <th>Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in medals %}
+                <tr>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

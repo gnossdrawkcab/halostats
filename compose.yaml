@@ -1,12 +1,14 @@
 services:
   halostats:
-    build: .
+    build:
+      context: .
+      dockerfile: config/Dockerfile
     container_name: halostats
     command: ["python", "/app/src/entrypoint.py"]
     volumes:
       - .:/app
-      - ./tokens.json:/data/tokens.json
       - /mnt/user/appdata/halo:/data
+      - ./tokens.json:/data/tokens.json
       # mount the persistent CA bundle into the container
       - /mnt/user/appdata/halo/cabundle.pem:/etc/ssl/certs/cabundle.pem:ro
     environment:
@@ -27,7 +29,9 @@ services:
     restart: unless-stopped
 
   halo-web:
-    build: .
+    build:
+      context: .
+      dockerfile: config/Dockerfile
     container_name: halo-web
     command: ["python", "/app/src/webapp.py"]
     ports:

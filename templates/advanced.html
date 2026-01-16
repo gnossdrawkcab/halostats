@@ -1,19 +1,12 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Advanced Stats - {{ app_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body>
-    {% include 'partials/nav.html' %}
+{% extends "base.html" %}
 
-    <main class="page">
-      <section class="panel">
-        <h2>Advanced Objective Stats</h2>
-        <p class="muted">Per-game averages for Ranked Arena objectives (DNF excluded).</p>
-      </section>
+{% block title %}Advanced Stats - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Advanced Objective Stats</h2>
+    <p class="muted">Per-game averages for Ranked Arena objectives (DNF excluded).</p>
+  </section>
 
       <section class="panel">
         <h2>Objective Stats - Last Session</h2>
@@ -278,8 +271,4 @@
           </table>
         </div>
       </section>
-    </main>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-  </body>
-</html>
+{% endblock %}

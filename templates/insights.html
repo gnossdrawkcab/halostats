@@ -69,6 +69,40 @@
   </div>
 </section>
 
+<section class="panel">
+  <h2>What Changed (Last 7 Days vs Prior 7)</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="change-summary">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th>Recent Games</th>
+          <th>Prev Games</th>
+          <th>Win % Change</th>
+          <th>KDA Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if change_rows %}
+        {% for row in change_rows %}
+        <tr>
+          <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}">{{ row.player }}</a></td>
+          <td>{{ row.recent_games }}</td>
+          <td>{{ row.prev_games }}</td>
+          <td class="{{ row.win_delta_heat }}">{{ row.win_delta }}</td>
+          <td class="{{ row.kda_delta_heat }}">{{ row.kda_delta }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="5" class="empty">No change data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section class="panel-grid">
   <div class="panel">
     <h2>Clutch Index (Close Games)</h2>
@@ -183,7 +217,7 @@
 
   <div class="panel">
     <h2>Map Veto Hints</h2>
-    <p class="muted">Best and worst maps per player (min {{ 5 }} games)</p>
+  <p class="muted">Best and worst maps per player (min {{ 50 }} games)</p>
     <div class="table-wrap">
       <table class="data-table" data-table="map-veto">
         <thead>
@@ -251,6 +285,155 @@
         {% else %}
         <tr>
           <td colspan="6" class="empty">No consistency data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Lineup Chemistry</h2>
+  <p class="muted">Best 2/3/4 stacks by win % and efficiency (min 5 games)</p>
+</section>
+
+<section class="panel">
+  <h2>Best 2-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-2">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup2_rows %}
+        {% for row in lineup2_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="/player/{{ p }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="8" class="empty">No lineup data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Best 3-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-3">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup3_rows %}
+        {% for row in lineup3_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="/player/{{ p }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="8" class="empty">No lineup data yet</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Best 4-Stacks</h2>
+  <div class="table-wrap">
+    <table class="data-table" data-table="lineups-4">
+      <thead>
+        <tr>
+          <th>Lineup</th>
+          <th>Games</th>
+          <th>Wins</th>
+          <th>Win %</th>
+          <th>KDA</th>
+          <th>Accuracy</th>
+          <th>Obj Score</th>
+          <th>Dmg Diff</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if lineup4_rows %}
+        {% for row in lineup4_rows %}
+        <tr>
+          <td>
+            {% if row.players %}
+            {% for p in row.players %}
+            <a href="/player/{{ p }}" class="player-name {{ p|player_class }}">{{ p }}</a>{% if not loop.last %} + {% endif %}
+            {% endfor %}
+            {% else %}
+            {{ row.lineup }}
+            {% endif %}
+          </td>
+          <td>{{ row.games }}</td>
+          <td>{{ row.wins }}</td>
+          <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
+          <td class="{{ row.kda_heat }}">{{ row.kda }}</td>
+          <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
+          <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
+          <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
+        </tr>
+        {% endfor %}
+        {% else %}
+        <tr>
+          <td colspan="8" class="empty">No lineup data yet</td>
         </tr>
         {% endif %}
       </tbody>

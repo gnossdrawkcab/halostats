@@ -23,6 +23,8 @@
           <th title="Melee kills">Melee</th>
           <th title="Grenade kills">Grenades</th>
           <th title="Power weapon kills">Power</th>
+          <th title="Snipe medals">Snipe Medals</th>
+          <th title="No Scope medals">No Scope Medals</th>
         </tr>
       </thead>
       <tbody>
@@ -38,11 +40,13 @@
           <td class="{{ row.melee_heat }}">{{ row.melee }}</td>
           <td class="{{ row.grenades_heat }}">{{ row.grenades }}</td>
           <td class="{{ row.power_heat }}">{{ row.power }}</td>
+          <td class="{{ row.snipe_medals_heat }}">{{ row.snipe_medals }}</td>
+          <td class="{{ row.no_scope_medals_heat }}">{{ row.no_scope_medals }}</td>
         </tr>
         {% endfor %}
         {% else %}
         <tr>
-          <td colspan="9" class="empty">No weapon data available</td>
+          <td colspan="11" class="empty">No weapon data available</td>
         </tr>
         {% endif %}
       </tbody>

@@ -1,96 +1,260 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Player Comparison - {{ app_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body>
-    {% include 'partials/nav.html' %}
+{% extends "base.html" %}
 
-    <main class="page">
-      <section class="panel">
-        <h2>Player Comparison - All Stats</h2>
-        <p style="color: var(--muted); margin: 0 0 12px 0;">Compare all players across comprehensive lifetime statistics</p>
-        
-        <div class="table-wrap" style="overflow-x: auto;">
-          <table class="data-table" style="min-width: 1800px;">
-            <thead>
-              <tr>
-                <th>Player</th>
-                <th title="Current CSR">CSR</th>
-                <th title="Number of games played">GMS</th>
-                <th title="Win percentage">WIN%</th>
-                <th title="Average kills per game">K</th>
-                <th title="Average deaths per game">D</th>
-                <th title="Average assists per game">A</th>
-                <th title="Kill/Death ratio">KD1</th>
-                <th title="Extended KD ratio">KD2</th>
-                <th title="KDA formula">KDA</th>
-                <th title="Average damage dealt per game">DMG +</th>
-                <th title="Average damage taken per game">DMG -</th>
-                <th title="Damage difference">DMG DIF</th>
-                <th title="Damage dealt per Kill+Assist">DMG/KA</th>
-                <th title="Damage dealt per Death">DMG/D</th>
-                <th title="Damage dealt per minute">DMG/M</th>
-                <th title="Your damage as % of team total">DMG %</th>
-                <th title="Your damage as % of enemy team total">DMG %-</th>
-                <th title="Total shots fired">FIRED</th>
-                <th title="Total shots that hit">LANDED</th>
-                <th title="Accuracy percentage">ACC.</th>
-                <th title="Average score per game">SCORE</th>
-                <th title="Objective score (personal score minus combat bonuses)">OBJ SCORE</th>
-                <th title="Your score as % of team total">SCORE %</th>
-                <th title="Average medals earned per game">MEDALS</th>
-                <th title="Average life duration">LIFETIME</th>
-                <th title="Callout assists per game">CALLOUTS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if comparison_rows %}
-                {% for row in comparison_rows %}
-                <tr>
-                  <td><a href="/player/{{ row.player }}" class="player-name {{ row.player|player_class }}"><strong>{{ row.player }}</strong></a></td>
-                  <td class="{{ row.csr_heat }}">{{ row.csr }}</td>
-                  <td class="{{ row.games_heat }}">{{ row.games }}</td>
-                  <td class="{{ row.win_pct_heat }}">{{ row.win_pct }}</td>
-                  <td class="{{ row.kills_heat }}">{{ row.kills }}</td>
-                  <td class="{{ row.deaths_heat }}">{{ row.deaths }}</td>
-                  <td class="{{ row.assists_heat }}">{{ row.assists }}</td>
-                  <td class="{{ row.kd1_heat }}">{{ row.kd1 }}</td>
-                  <td class="{{ row.kd2_heat }}">{{ row.kd2 }}</td>
-                  <td class="{{ row.kda_heat }}"><strong>{{ row.kda }}</strong></td>
-                  <td class="{{ row.dmg_plus_heat }}">{{ row.dmg_plus }}</td>
-                  <td class="{{ row.dmg_minus_heat }}">{{ row.dmg_minus }}</td>
-                  <td class="{{ row.dmg_diff_heat }}">{{ row.dmg_diff }}</td>
-                  <td class="{{ row.dmg_per_ka_heat }}">{{ row.dmg_per_ka }}</td>
-                  <td class="{{ row.dmg_per_death_heat }}">{{ row.dmg_per_death }}</td>
-                  <td class="{{ row.dmg_per_min_heat }}">{{ row.dmg_per_min }}</td>
-                  <td class="{{ row.dmg_pct_plus_heat }}">{{ row.dmg_pct_plus }}</td>
-                  <td class="{{ row.dmg_pct_minus_heat }}">{{ row.dmg_pct_minus }}</td>
-                  <td class="{{ row.fired_heat }}">{{ row.fired }}</td>
-                  <td class="{{ row.landed_heat }}">{{ row.landed }}</td>
-                  <td class="{{ row.accuracy_heat }}">{{ row.accuracy }}</td>
-                  <td class="{{ row.score_heat }}">{{ row.score }}</td>
-                  <td class="{{ row.obj_score_heat }}">{{ row.obj_score }}</td>
-                  <td class="{{ row.score_pct_heat }}">{{ row.score_pct }}</td>
-                  <td class="{{ row.medals_heat }}">{{ row.medals }}</td>
-                  <td class="{{ row.avg_life_heat }}">{{ row.avg_life }}</td>
-                  <td class="{{ row.callouts_heat }}">{{ row.callouts }}</td>
-                </tr>
-                {% endfor %}
-              {% else %}
-              <tr>
-                <td colspan="27" class="empty">No player data available</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
+{% block title %}Compare Players - {{ app_title }}{% endblock %}
+
+{% block content %}
+<section class="panel">
+  <h2>Player Comparison</h2>
+  <p class="muted">Comprehensive analysis of each player's strengths and weaknesses</p>
+</section>
+
+{% if player_summaries %}
+  {% for player, profile in player_summaries.items() %}
+  <section class="panel">
+    <div class="player-profile">
+      <h3><a href="/player/{{ player }}" class="player-name {{ player|player_class }}">{{ player }}</a></h3>
+      
+      <div class="profile-stats-grid">
+        <div class="stat-group">
+          <h4>Overview</h4>
+          <div class="stat-row">
+            <span class="stat-label">Games Played:</span>
+            <span class="stat-value">{{ profile.games }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Win Rate:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.win_pct) }}%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">KDA:</span>
+            <span class="stat-value">{{ "%.2f"|format(profile.kda) }}</span>
+          </div>
         </div>
-      </section>
-    </main>
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-  </body>
-</html>
+        <div class="stat-group">
+          <h4>Per Game</h4>
+          <div class="stat-row">
+            <span class="stat-label">Kills/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.kills_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Deaths/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.deaths_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Assists/Game:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.assists_pg) }}</span>
+          </div>
+        </div>
+
+        <div class="stat-group">
+          <h4>Combat</h4>
+          <div class="stat-row">
+            <span class="stat-label">Accuracy:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.accuracy) }}%</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage/Game:</span>
+            <span class="stat-value">{{ "%.0f"|format(profile.dmg_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage Diff/Game:</span>
+            <span class="stat-value">{{ "%+.0f"|format(profile.dmg_diff_pg) }}</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Damage/Minute:</span>
+            <span class="stat-value">{{ "%.0f"|format(profile.dmg_per_min) }}</span>
+          </div>
+        </div>
+
+        <div class="stat-group">
+          <h4>Medals/Game</h4>
+          <div class="stat-row">
+            <span class="stat-label">Average:</span>
+            <span class="stat-value">{{ "%.1f"|format(profile.medals_pg) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="strengths-weaknesses">
+        <div class="strengths">
+          <h4>💪 What They Do Well</h4>
+          {% if profile.strengths and profile.strengths|length > 0 %}
+            <ul>
+            {% for strength in profile.strengths %}
+              <li><span class="strength-number">{{ loop.index }}</span>{{ strength }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout strengths identified</p>
+          {% endif %}
+        </div>
+
+        <div class="weaknesses">
+          <h4>⚠️ Areas to Improve</h4>
+          {% if profile.weaknesses and profile.weaknesses|length > 0 %}
+            <ul>
+            {% for weakness in profile.weaknesses %}
+              <li><span class="weakness-number">{{ loop.index }}</span>{{ weakness }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">Well-rounded performance across the board</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endfor %}
+{% else %}
+<section class="panel">
+  <p class="empty">No player data available</p>
+</section>
+{% endif %}
+
+<style>
+.player-profile {
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(61, 191, 184, 0.05) 0%, rgba(255, 122, 61, 0.05) 100%);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.player-profile h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.2rem;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stat-group {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.6rem;
+  border-radius: 6px;
+  border-left: 3px solid #3dbfb8;
+}
+
+.stat-group h4 {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.75rem;
+  color: #3dbfb8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.2rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.8rem;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: #9a8f82;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #e8dfd3;
+  font-family: 'Courier New', monospace;
+}
+
+.strengths-weaknesses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.strengths, .weaknesses {
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.8rem;
+  border-radius: 6px;
+}
+
+.strengths h4 {
+  color: #86efac;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.weaknesses h4 {
+  color: #fca5a5;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.strengths ul, .weaknesses ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.strengths li, .weaknesses li {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: #e8dfd3;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.strengths li:last-child, .weaknesses li:last-child {
+  border-bottom: none;
+}
+
+.strength-number, .weakness-number {
+  font-weight: bold;
+  font-size: 0.7rem;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.strength-number {
+  background: rgba(134, 239, 172, 0.2);
+  color: #86efac;
+  border: 1px solid #86efac;
+}
+
+.weakness-number {
+  background: rgba(252, 165, 165, 0.2);
+  color: #fca5a5;
+  border: 1px solid #fca5a5;
+}
+
+.strengths li::before {
+  content: '';
+}
+
+.weaknesses li::before {
+  content: '';
+}
+
+@media (max-width: 768px) {
+  .profile-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .strengths-weaknesses {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}

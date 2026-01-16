@@ -1,19 +1,12 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Highlights - {{ app_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-  </head>
-  <body>
-    {% include 'partials/nav.html' %}
+{% extends "base.html" %}
 
-    <main class="page">
-      <section class="panel">
-        <h2>Highlights</h2>
-        <p class="muted" style="margin: -8px 0 0 0;">Top 10 outlier games per player (Ranked only, DNFs excluded)</p>
-      </section>
+{% block title %}Highlights - {{ app_title }}{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Highlights</h2>
+    <p class="muted" style="margin: -8px 0 0 0;">Top 10 outlier games per player (Ranked only, DNFs excluded)</p>
+  </section>
 
       {% if highlight_rows %}
       <section class="panel">
@@ -72,8 +65,4 @@
         <div class="empty">No highlight data available yet.</div>
       </section>
       {% endif %}
-    </main>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-  </body>
-</html>
+{% endblock %}

@@ -1,141 +1,83 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Columns - {{ app_title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
-    <style>
-      .site-header h1 {
-        background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.3));
-      }
-      .cols-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-      @media (min-width: 900px) {
-        .cols-grid {
-          grid-template-columns: 1fr 1fr;
-        }
-      }
-      .muted {
-        opacity: 0.85;
-        font-size: 0.9rem;
-      }
-    </style>
-  </head>
-  <body>
-    <header class="site-header">
-      <div class="header-left">
-        <a class="site-logo" href="/">{{ app_title }}</a>
-        <button class="nav-toggle" type="button" onclick="toggleNav()" aria-label="Toggle navigation" aria-controls="siteNav" aria-expanded="false">☰</button>
-        <nav class="site-nav" id="siteNav">
-          <div class="nav-group">
-            <span class="nav-label">Session ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/">Dashboard</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Lifetime ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/advanced">Advanced</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Analysis ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/highlights">Highlights</a>
-              <a class="nav-link" href="/medals">Medals</a>
-            </div>
-          </div>
-          <div class="nav-group">
-            <span class="nav-label">Community ▾</span>
-            <div class="nav-menu">
-              <a class="nav-link" href="/settings">Settings</a>
-              <a class="nav-link" href="/columns">Columns</a>
-            </div>
-          </div>
-        </nav>
-      </div>
-      <div class="header-right">
-        <div class="header-info">
-          {% if last_update %}<span>{{ last_update }}</span>{% endif %}
-          <span>{{ wide_count }} columns</span>
-          <span>{{ kv_count }} keys</span>
+{% extends "base.html" %}
+
+{% block title %}Columns - {{ app_title }}{% endblock %}
+
+{% block head %}
+<style>
+  .cols-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 900px) {
+    .cols-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Available Fields</h2>
+    <p class="muted">
+      This page shows what the app is currently storing from the Halo API.
+      It does not show any match rows or values.
+    </p>
+    <p class="muted">{{ wide_count }} columns · {{ kv_count }} keys</p>
+
+    <div class="cols-grid">
+      <div>
+        <h3>Stable Table Columns (halo_match_stats)</h3>
+        <div class="table-wrap">
+          <table class="data-table" data-table="columns-wide" style="font-size: 0.9rem;">
+            <thead>
+              <tr>
+                <th>Column</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if wide_columns %}
+              {% for c in wide_columns %}
+              <tr>
+                <td>{{ c }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td>No columns found (table not created yet).</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
         </div>
       </div>
-    </header>
 
-    <main class="page">
-      <section class="panel">
-        <h2>Available Fields</h2>
-        <p class="muted">
-          This page shows what the app is currently storing from the Halo API.
-          It does not show any match rows or values.
-        </p>
-
-        <div class="cols-grid">
-          <div>
-            <h3>Stable Table Columns (halo_match_stats)</h3>
-            <div class="table-wrap">
-              <table class="data-table" data-table="columns-wide" style="font-size: 0.9rem;">
-                <thead>
-                  <tr>
-                    <th>Column</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% if wide_columns %}
-                  {% for c in wide_columns %}
-                  <tr>
-                    <td>{{ c }}</td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td>No columns found (table not created yet).</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div>
-            <h3>Auto-Discovered Keys (halo_stat_keys)</h3>
-            <div class="table-wrap">
-              <table class="data-table" data-table="columns-kv" style="font-size: 0.9rem;">
-                <thead>
-                  <tr>
-                    <th>Key</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% if kv_keys %}
-                  {% for k in kv_keys %}
-                  <tr>
-                    <td>{{ k }}</td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td>No keys discovered yet (run the scraper).</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <div>
+        <h3>Auto-Discovered Keys (halo_stat_keys)</h3>
+        <div class="table-wrap">
+          <table class="data-table" data-table="columns-kv" style="font-size: 0.9rem;">
+            <thead>
+              <tr>
+                <th>Key</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if kv_keys %}
+              {% for k in kv_keys %}
+              <tr>
+                <td>{{ k }}</td>
+              </tr>
+              {% endfor %}
+              {% else %}
+              <tr>
+                <td>No keys discovered yet (run the scraper).</td>
+              </tr>
+              {% endif %}
+            </tbody>
+          </table>
         </div>
-      </section>
-    </main>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
-  </body>
-</html>
+      </div>
+    </div>
+  </section>
+{% endblock %}

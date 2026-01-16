@@ -22,26 +22,26 @@ def load_tokens():
         print(f"❌ Failed to load tokens.json: {e}")
         return None
 
-def tokens_valid():
+def token_status():
     if not TOKEN_FILE.exists():
         print("❌ tokens.json does not exist.")
-        return False
+        return "missing"
 
     tokens = load_tokens()
     if not tokens:
-        return False
+        return "invalid"
 
     for key in REQUIRED_KEYS:
         if not tokens.get(key):
             print(f"❌ Missing or empty token: {key}")
-            return False
+            return "invalid"
 
     if time.time() > tokens.get("expires_at", 0):
-        print("⚠️ Token expired. Will run auth to refresh.")
-        return False
+        print("⚠️ Token expired. Will refresh.")
+        return "expired"
 
     print("✅ tokens.json is valid and all tokens are present.")
-    return True
+    return "valid"
 
 def run_script(script_name):
     try:
@@ -72,11 +72,12 @@ def main():
     while True:
         sleep_seconds = get_update_interval()
         
-        if not tokens_valid():
+        status = token_status()
+        if status != "valid":
             # Check if running in Docker (HALO_DATA_DIR suggests Docker environment)
             is_docker = os.getenv("HALO_DATA_DIR") == "/data"
             
-            if is_docker:
+            if is_docker and status == "missing":
                 print("⏳ tokens.json not found in Docker container.")
                 print("📌 To get started:")
                 print("   1. Authenticate locally: python src/auth.py")
@@ -85,10 +86,10 @@ def main():
                 print("        - ./tokens.json:/data/tokens.json")
                 print(f"⏳ Waiting for tokens.json (checking every {sleep_seconds}s)...")
             else:
-                # Run auth locally
+                # Refresh tokens using auth.py (works in Docker if refresh_token exists).
                 run_script("auth.py")
 
-        if tokens_valid():
+        if token_status() == "valid":
             run_script("stats.py")
         else:
             if not os.getenv("HALO_DATA_DIR"):

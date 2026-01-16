@@ -38,14 +38,17 @@
     <label>
       Limit
       <select name="limit">
-        <option value="all" {% if selected_limit == 'all' %}selected{% endif %}>All</option>
+        <option value="all" {% if selected_limit == 'all' %}selected{% endif %}>All (capped)</option>
         {% for value in [25, 50, 100, 200, 500, 1000, 2000] %}
-        <option value="{{ value }}" {% if selected_limit == value %}selected{% endif %}>{{ value }}</option>
+        <option value="{{ value }}" {% if selected_limit == value|string %}selected{% endif %}>{{ value }}</option>
         {% endfor %}
       </select>
     </label>
     <button type="submit" class="btn">Filter</button>
   </form>
+  {% if limit_note %}
+  <p class="muted">{{ limit_note }}</p>
+  {% endif %}
 
   <div class="table-wrap">
     <table class="data-table" data-table="lifetime-summary">
