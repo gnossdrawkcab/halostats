@@ -534,6 +534,14 @@
         
         <div class="panel">
           <h3>Outlier Spotlight</h3>
+          {% if outlier_ranges %}
+          <div class="outlier-range">
+            <span class="outlier-range-title">Timeline</span>
+            {% for option in outlier_ranges %}
+            <a class="trend-range-btn{% if option.active %} active{% endif %}" href="{{ url_for('index', player=selected_player, playlist=selected_playlist, mode=selected_mode, outliers=option.key) }}">{{ option.label }}</a>
+            {% endfor %}
+          </div>
+          {% endif %}
           <div class="table-wrap">
             <table class="data-table">
               <thead>

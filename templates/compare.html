@@ -13,6 +13,12 @@
   <section class="panel">
     <div class="player-profile">
       <h3><a href="/player/{{ player }}" class="player-name {{ player|player_class }}">{{ player }}</a></h3>
+      {% if profile.title %}
+        <p class="player-title">{{ profile.title }}</p>
+      {% endif %}
+      {% if profile.writeup %}
+        <p class="player-writeup">{{ profile.writeup|safe }}</p>
+      {% endif %}
       
       <div class="profile-stats-grid">
         <div class="stat-group">
@@ -78,7 +84,7 @@
 
       <div class="strengths-weaknesses">
         <div class="strengths">
-          <h4>💪 What They Do Well</h4>
+          <h4>Stat Strengths</h4>
           {% if profile.strengths and profile.strengths|length > 0 %}
             <ul>
             {% for strength in profile.strengths %}
@@ -91,7 +97,7 @@
         </div>
 
         <div class="weaknesses">
-          <h4>⚠️ Areas to Improve</h4>
+          <h4>Stat Weaknesses</h4>
           {% if profile.weaknesses and profile.weaknesses|length > 0 %}
             <ul>
             {% for weakness in profile.weaknesses %}
@@ -100,6 +106,32 @@
             </ul>
           {% else %}
             <p class="muted">Well-rounded performance across the board</p>
+          {% endif %}
+        </div>
+
+        <div class="medal-strengths">
+          <h4>Medal Strengths</h4>
+          {% if profile.medal_strengths and profile.medal_strengths|length > 0 %}
+            <ul>
+            {% for strength in profile.medal_strengths %}
+              <li><span class="medal-strength-number">{{ loop.index }}</span>{{ strength }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout medal strengths identified</p>
+          {% endif %}
+        </div>
+
+        <div class="medal-weaknesses">
+          <h4>Medal Weaknesses</h4>
+          {% if profile.medal_weaknesses and profile.medal_weaknesses|length > 0 %}
+            <ul>
+            {% for weakness in profile.medal_weaknesses %}
+              <li><span class="medal-weakness-number">{{ loop.index }}</span>{{ weakness }}</li>
+            {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No standout medal weaknesses identified</p>
           {% endif %}
         </div>
       </div>
@@ -123,6 +155,32 @@
 .player-profile h3 {
   margin: 0 0 0.75rem 0;
   font-size: 1.2rem;
+}
+
+.player-title {
+  margin: 0 0 0.4rem 0;
+  font-size: 0.95rem;
+  color: #fbbf24;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.player-writeup {
+  margin: 0 0 0.9rem 0;
+  font-size: 0.85rem;
+  color: #d8cdbf;
+  line-height: 1.4;
+}
+
+.stat-good {
+  color: #86efac;
+  font-weight: 600;
+}
+
+.stat-bad {
+  color: #fca5a5;
+  font-weight: 600;
 }
 
 .profile-stats-grid {
@@ -177,7 +235,7 @@
   gap: 1rem;
 }
 
-.strengths, .weaknesses {
+.strengths, .weaknesses, .medal-strengths, .medal-weaknesses {
   background: rgba(255, 255, 255, 0.02);
   padding: 0.8rem;
   border-radius: 6px;
@@ -195,13 +253,25 @@
   font-size: 0.9rem;
 }
 
-.strengths ul, .weaknesses ul {
+.medal-strengths h4 {
+  color: #fbbf24;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.medal-weaknesses h4 {
+  color: #fb923c;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.strengths ul, .weaknesses ul, .medal-strengths ul, .medal-weaknesses ul {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.strengths li, .weaknesses li {
+.strengths li, .weaknesses li, .medal-strengths li, .medal-weaknesses li {
   padding: 0.3rem 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   color: #e8dfd3;
@@ -211,11 +281,11 @@
   gap: 0.4rem;
 }
 
-.strengths li:last-child, .weaknesses li:last-child {
+.strengths li:last-child, .weaknesses li:last-child, .medal-strengths li:last-child, .medal-weaknesses li:last-child {
   border-bottom: none;
 }
 
-.strength-number, .weakness-number {
+.strength-number, .weakness-number, .medal-strength-number, .medal-weakness-number {
   font-weight: bold;
   font-size: 0.7rem;
   min-width: 18px;
@@ -239,12 +309,115 @@
   border: 1px solid #fca5a5;
 }
 
+.medal-strength-number {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 1px solid #fbbf24;
+}
+
+.medal-weakness-number {
+  background: rgba(251, 146, 60, 0.2);
+  color: #fb923c;
+  border: 1px solid #fb923c;
+}
+
 .strengths li::before {
   content: '';
 }
 
 .weaknesses li::before {
   content: '';
+}
+
+.medal-strengths li::before {
+  content: '';
+}
+
+.medal-weaknesses li::before {
+  content: '';
+}
+
+[data-theme="light"] .player-profile {
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.08) 0%, rgba(255, 122, 61, 0.08) 100%);
+  border: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .player-title {
+  color: #b45309;
+}
+
+[data-theme="light"] .player-writeup {
+  color: #4b3f34;
+}
+
+[data-theme="light"] .stat-group {
+  background: #fff9f1;
+  border-left-color: #0f766e;
+  box-shadow: inset 0 0 0 1px #eadfd3;
+}
+
+[data-theme="light"] .stat-group h4 {
+  color: #0f766e;
+}
+
+[data-theme="light"] .stat-row {
+  border-bottom: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .stat-label {
+  color: #6b5e54;
+}
+
+[data-theme="light"] .stat-value {
+  color: #1f1a16;
+}
+
+[data-theme="light"] .strengths,
+[data-theme="light"] .weaknesses,
+[data-theme="light"] .medal-strengths,
+[data-theme="light"] .medal-weaknesses {
+  background: #fff9f1;
+  border: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .strengths li,
+[data-theme="light"] .weaknesses li,
+[data-theme="light"] .medal-strengths li,
+[data-theme="light"] .medal-weaknesses li {
+  color: #3a3128;
+  border-bottom: 1px solid #eadfd3;
+}
+
+[data-theme="light"] .strength-number {
+  background: rgba(22, 163, 74, 0.15);
+  color: #166534;
+  border-color: #16a34a;
+}
+
+[data-theme="light"] .weakness-number {
+  background: rgba(185, 28, 28, 0.12);
+  color: #7f1d1d;
+  border-color: #b91c1c;
+}
+
+[data-theme="light"] .medal-strength-number {
+  background: rgba(234, 179, 8, 0.16);
+  color: #92400e;
+  border-color: #eab308;
+}
+
+[data-theme="light"] .medal-weakness-number {
+  background: rgba(251, 146, 60, 0.16);
+  color: #9a3412;
+  border-color: #fb923c;
+}
+
+[data-theme="light"] .stat-good {
+  color: #15803d;
+}
+
+[data-theme="light"] .stat-bad {
+  color: #b91c1c;
 }
 
 @media (max-width: 768px) {

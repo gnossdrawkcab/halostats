@@ -579,21 +579,37 @@ body.nav-open .nav-overlay {
   margin-top: 12px;
 }
 
+.outlier-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 8px;
+}
+
+.outlier-range-title {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .trend-range-sticky {
   position: sticky;
-  top: 72px;
-  z-index: 20;
+  top: 64px;
+  z-index: 50;
   padding: 10px 12px;
-  background: rgba(15, 13, 11, 0.9);
+  background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
-  margin-top: 16px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.25);
+  margin-top: 0;
 }
 
 @media (max-width: 980px) {
   .trend-range-sticky {
-    top: 130px;
+    top: 112px;
   }
 }
 
@@ -1264,6 +1280,10 @@ body.nav-open .nav-overlay {
   background: linear-gradient(180deg, #1f1b18 0%, #1a1612 100%);
 }
 
+html[data-theme="light"] .table-scroll-container .data-table th:first-child {
+  background: linear-gradient(180deg, #f7f2eb 0%, #ebe3da 100%);
+}
+
 /* ============================================
    THEME TOGGLE & LIGHT MODE
    ============================================ */
@@ -1282,21 +1302,21 @@ body.nav-open .nav-overlay {
 }
 
 [data-theme="light"] {
-  --bg-0: #fafafa;
-  --bg-1: #f0f0f0;
-  --ink: #0a0a0a;
-  --muted: #3a3a3a;
-  --panel: #ffffff;
-  --panel-strong: #f5f5f5;
-  --border: #c1c1c1;
-  --shadow: rgba(0, 0, 0, 0.15);
+  --bg-0: #f8f4ef;
+  --bg-1: #efe9e1;
+  --ink: #1f1a16;
+  --muted: #5b5249;
+  --panel: #fffdf9;
+  --panel-strong: #f6f1ea;
+  --border: #d6cec5;
+  --shadow: rgba(16, 12, 8, 0.12);
   --accent: #ff6b3d;
-  --accent-2: #2d9a96;
+  --accent-2: #0f766e;
 }
 
 [data-theme="light"] body {
-  background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
-  color: #0a0a0a;
+  background: linear-gradient(180deg, #fffdf9 0%, #f1ece4 100%);
+  color: #1f1a16;
 }
 
 [data-theme="light"] .site-header {
@@ -1322,7 +1342,7 @@ body.nav-open .nav-overlay {
 }
 
 [data-theme="light"] .summary-item {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.92);
 }
 
 [data-theme="light"] .summary-strip {
@@ -1342,14 +1362,22 @@ body.nav-open .nav-overlay {
 }
 
 [data-theme="light"] .data-table th {
-  background: linear-gradient(180deg, #f5f5f5 0%, #e5e5e5 100%);
-  color: #ff6b3d;
-  border-bottom: 2px solid #c1c1c1;
+  background: linear-gradient(180deg, #f7f2eb 0%, #ebe3da 100%);
+  color: #c2410c;
+  border-bottom: 2px solid #d6cec5;
 }
 
 [data-theme="light"] .data-table td {
-  border-bottom: 1px solid #e0e0e0;
-  color: #0a0a0a;
+  border-bottom: 1px solid #e6dfd6;
+  color: #1f1a16;
+}
+
+[data-theme="light"] .data-table tbody tr:nth-child(odd) {
+  background: #faf6f0;
+}
+
+[data-theme="light"] .data-table tbody tr:nth-child(even) {
+  background: #fffdf9;
 }
 
 [data-theme="light"] .data-table tbody tr:hover {
@@ -1357,14 +1385,14 @@ body.nav-open .nav-overlay {
 }
 
 [data-theme="light"] .panel {
-  background: #ffffff;
-  border: 1px solid #c1c1c1;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: #fffdf9;
+  border: 1px solid #d6cec5;
+  box-shadow: 0 10px 28px rgba(31, 24, 18, 0.08);
 }
 
 [data-theme="light"] .table-wrap {
-  background: #fafafa;
-  border: 1px solid #c1c1c1;
+  background: #fffaf4;
+  border: 1px solid #d6cec5;
 }
 
 [data-theme="light"] .heat-excellent {
@@ -1398,11 +1426,11 @@ body.nav-open .nav-overlay {
 }
 
 /* Light mode player name colors - darker for visibility */
-[data-theme="light"] .player-name.player-zaidster { background: rgba(34, 139, 34, 0.2); color: #166534; }
-[data-theme="light"] .player-name.player-octy { background: rgba(255, 215, 0, 0.25); color: #854d0e; }
+[data-theme="light"] .player-name.player-zaidster { background: rgba(34, 139, 34, 0.2); color: #14532d; }
+[data-theme="light"] .player-name.player-octy { background: rgba(255, 215, 0, 0.25); color: #7c4a0a; }
 [data-theme="light"] .player-name.player-viper { background: rgba(65, 105, 225, 0.2); color: #1e3a8a; }
-[data-theme="light"] .player-name.player-jordo { background: rgba(100, 100, 100, 0.2); color: #1a1a1a; }
-[data-theme="light"] .player-name.player-pini { background: rgba(220, 53, 69, 0.2); color: #991b1b; }
+[data-theme="light"] .player-name.player-jordo { background: rgba(100, 100, 100, 0.18); color: #1f2937; }
+[data-theme="light"] .player-name.player-pini { background: rgba(220, 53, 69, 0.2); color: #7f1d1d; }
 
 /* ============================================
    EXPORT DROPDOWN
@@ -1806,6 +1834,18 @@ body.nav-open .nav-overlay {
 .player-name.player-jordo { background: rgba(192, 192, 192, 0.4); color: #f5f5f5; }
 .player-name.player-pini { background: rgba(220, 53, 69, 0.4); color: #ffb6c1; }
 
+html[data-theme="light"] .player-name {
+  color: #1f1a16;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="light"] .player-name.player-zaidster { background: rgba(34, 139, 34, 0.2); color: #14532d; border-color: rgba(34, 139, 34, 0.35); }
+html[data-theme="light"] .player-name.player-octy { background: rgba(255, 215, 0, 0.25); color: #7c4a0a; border-color: rgba(202, 138, 4, 0.35); }
+html[data-theme="light"] .player-name.player-viper { background: rgba(65, 105, 225, 0.2); color: #1e3a8a; border-color: rgba(30, 58, 138, 0.35); }
+html[data-theme="light"] .player-name.player-jordo { background: rgba(100, 100, 100, 0.18); color: #1f2937; border-color: rgba(55, 65, 81, 0.35); }
+html[data-theme="light"] .player-name.player-pini { background: rgba(220, 53, 69, 0.2); color: #7f1d1d; border-color: rgba(127, 29, 29, 0.35); }
+
 .player-hover-card {
   position: fixed;
   min-width: 180px;
@@ -1881,5 +1921,3 @@ body.nav-open .nav-overlay {
   color: #fff;
   border-color: var(--accent);
 }
-
-

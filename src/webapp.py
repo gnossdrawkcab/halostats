@@ -2,6 +2,7 @@
 # Many build_* functions are truncated or missing implementations.
 # The file compiles but may have runtime issues until all functions are restored.
 
+import html
 import json
 import os
 import re
@@ -1024,14 +1025,27 @@ def build_csr_trends(df: pd.DataFrame) -> dict:
     return trends
 
 
-def build_outlier_spotlight(df: pd.DataFrame) -> list[dict]:
+def build_outlier_spotlight(df: pd.DataFrame, range_key: str | None = None) -> list[dict]:
     """Build spotlight highlighting player outliers vs the group."""
     if df.empty or 'player_gamertag' not in df.columns:
         return []
     
     ranked_df = df[df['playlist'].astype(str).str.contains('Ranked', case=False, na=False)].copy() if 'playlist' in df.columns else df.copy()
+    range_key = (range_key or 'all').lower()
+    if range_key == 'lifetime':
+        range_key = 'all'
     if ranked_df.empty:
         return []
+
+    if range_key != 'all':
+        if 'date' not in ranked_df.columns:
+            return []
+        ranked_df = ranked_df.copy()
+        ranked_df['date'] = pd.to_datetime(ranked_df['date'], errors='coerce', utc=True)
+        ranked_df = ranked_df.dropna(subset=['date'])
+        ranked_df = apply_trend_range(ranked_df, range_key)
+        if ranked_df.empty:
+            return []
     
     player_stats = []
     for player in unique_sorted(ranked_df['player_gamertag']):
@@ -4679,7 +4693,14 @@ def index():
 
 
     # Outlier spotlight
-    outlier_rows = build_outlier_spotlight(df)
+    outlier_range = request.args.get('outliers', 'all')
+    outlier_rows = build_outlier_spotlight(df, outlier_range)
+    outlier_ranges = [
+        {'key': '30', 'label': '30D', 'active': outlier_range == '30'},
+        {'key': '90', 'label': '90D', 'active': outlier_range == '90'},
+        {'key': '365', 'label': '1Y', 'active': outlier_range == '365'},
+        {'key': 'all', 'label': 'Lifetime', 'active': outlier_range == 'all'}
+    ]
 
 
     status = load_status()
@@ -4743,6 +4764,8 @@ def index():
 
 
                           outlier_rows=outlier_rows,
+                          outlier_ranges=outlier_ranges,
+                          outlier_range=outlier_range,
 
 
                           last_update=last_update,
@@ -5354,58 +5377,71 @@ def build_player_summary(df: pd.DataFrame) -> dict:
     if df.empty or 'player_gamertag' not in df.columns:
         return {}
     
-    # First pass: Calculate all metrics for all players
     all_players = unique_sorted(df['player_gamertag'])
+    if not all_players:
+        return {}
+
+    medal_cols = [
+        col for col in df.columns
+        if col.startswith('medal_') and col != 'medal_count'
+    ]
+    medal_totals = []
+    for col in medal_cols:
+        total = pd.to_numeric(df[col], errors='coerce').fillna(0).sum()
+        if total > 0:
+            medal_totals.append((col, total))
+    medal_totals.sort(key=lambda item: item[1], reverse=True)
+    compare_medal_cols = [col for col, _ in medal_totals[:50]]
+
     player_metrics = {}
-    
     for player in all_players:
         player_df = df[df['player_gamertag'] == player]
         if player_df.empty:
             continue
-        
+
         games = len(player_df)
         wins = (player_df['outcome'].astype(str).str.lower() == 'win').sum()
-        
-        # Per-game stats
+
         kills_pg = safe_col_sum(player_df, 'kills') / games
         deaths_pg = safe_col_sum(player_df, 'deaths') / games
         assists_pg = safe_col_sum(player_df, 'assists') / games
-        
+
         total_shots_hit = safe_col_sum(player_df, 'shots_hit')
         total_shots_fired = safe_col_sum(player_df, 'shots_fired')
-        accuracy = (total_shots_hit / total_shots_fired * 100) if total_shots_fired > 0 else 0
-        
+        if total_shots_fired > 0:
+            accuracy = total_shots_hit / total_shots_fired * 100
+        else:
+            accuracy = numeric_series(player_df, 'accuracy').mean()
+            if accuracy <= 1:
+                accuracy *= 100
+
         total_dmg_dealt = safe_col_sum(player_df, 'damage_dealt')
         total_dmg_taken = safe_col_sum(player_df, 'damage_taken')
         dmg_pg = total_dmg_dealt / games
         dmg_diff_pg = (total_dmg_dealt - total_dmg_taken) / games
-        
+
         total_duration = safe_col_sum(player_df, 'duration')
         dmg_per_min = total_dmg_dealt / (total_duration / 60) if total_duration > 0 else 0
-        
+
+        medals_pg = safe_col_sum(player_df, 'medal_count') / games
+
+        win_pct = wins / games * 100
+        kda = safe_kda(kills_pg, assists_pg, deaths_pg)
+
         total_kills = safe_col_sum(player_df, 'kills')
         headshot_pct = (safe_col_sum(player_df, 'headshot_kills') / total_kills * 100) if total_kills > 0 else 0
         melee_pct = (safe_col_sum(player_df, 'melee_kills') / total_kills * 100) if total_kills > 0 else 0
         grenade_pct = (safe_col_sum(player_df, 'grenade_kills') / total_kills * 100) if total_kills > 0 else 0
         power_pct = (safe_col_sum(player_df, 'power_weapon_kills') / total_kills * 100) if total_kills > 0 else 0
-        
-        medals_pg = safe_col_sum(player_df, 'medal_count') / games
-        
-        # Medal stats
-        ninja_pg = safe_col_sum(player_df, 'medal_Ninja') / games
-        snipe_pg = safe_col_sum(player_df, 'medal_Snipe') / games
-        no_scope_pg = safe_col_sum(player_df, 'medal_No_Scope') / games
-        spree_pg = safe_col_sum(player_df, 'medal_Killing_Spree') / games
-        multi_pg = (safe_col_sum(player_df, 'medal_Double_Kill') + safe_col_sum(player_df, 'medal_Triple_Kill')) / games
-        
-        # Survivability
+
         avg_life = safe_col_sum(player_df, 'average_life_duration') / games if 'average_life_duration' in player_df.columns else 0
-        
-        kd_ratio = kills_pg / deaths_pg if deaths_pg > 0 else kills_pg
-        win_pct = wins / games * 100
-        kda = safe_kda(kills_pg, assists_pg, deaths_pg)
-        
-        player_metrics[player] = {
+        obj_score_pg = objective_score_series(player_df).sum() / games if games else 0
+        callouts_pg = safe_col_sum(player_df, 'callout_assists') / games
+        score_pg = score_series(player_df).sum() / games if games else 0
+        betrayals_pg = safe_col_sum(player_df, 'betrayals') / games
+        suicides_pg = safe_col_sum(player_df, 'suicides') / games
+
+        metrics = {
             'games': games,
             'win_pct': win_pct,
             'kda': kda,
@@ -5417,171 +5453,422 @@ def build_player_summary(df: pd.DataFrame) -> dict:
             'dmg_diff_pg': dmg_diff_pg,
             'dmg_per_min': dmg_per_min,
             'medals_pg': medals_pg,
-            'kd_ratio': kd_ratio,
             'headshot_pct': headshot_pct,
             'melee_pct': melee_pct,
             'grenade_pct': grenade_pct,
             'power_pct': power_pct,
-            'ninja_pg': ninja_pg,
-            'snipe_pg': snipe_pg,
-            'no_scope_pg': no_scope_pg,
-            'spree_pg': spree_pg,
-            'multi_pg': multi_pg,
-            'avg_life': avg_life
+            'avg_life': avg_life,
+            'obj_score_pg': obj_score_pg,
+            'callouts_pg': callouts_pg,
+            'score_pg': score_pg,
+            'betrayals_pg': betrayals_pg,
+            'suicides_pg': suicides_pg
         }
-    
-    # Second pass: Comparative analysis for strengths/weaknesses
+
+        for col in compare_medal_cols:
+            metrics[col] = safe_col_sum(player_df, col) / games if games else 0
+
+        player_metrics[player] = metrics
+
+    if not player_metrics:
+        return {}
+
+    def format_value(value: float, digits: int, suffix: str = '') -> str:
+        return f"{format_float(value, digits)}{suffix}"
+
+    stat_metric_defs = [
+        {'key': 'kills_pg', 'label': 'Kills/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'deaths_pg', 'label': 'Deaths/Game', 'higher_is_better': False, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'assists_pg', 'label': 'Assists/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'kda', 'label': 'KDA', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 2)},
+        {'key': 'accuracy', 'label': 'Accuracy', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'win_pct', 'label': 'Win %', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'dmg_pg', 'label': 'Damage/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 0)},
+        {'key': 'dmg_diff_pg', 'label': 'Damage Diff/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_signed(v, 0)},
+        {'key': 'dmg_per_min', 'label': 'Damage/Min', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 0)},
+        {'key': 'score_pg', 'label': 'Score/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 0)},
+        {'key': 'obj_score_pg', 'label': 'Objective Score/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'callouts_pg', 'label': 'Callouts/Game', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'headshot_pct', 'label': 'Headshot %', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'melee_pct', 'label': 'Melee Kill %', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'grenade_pct', 'label': 'Grenade Kill %', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'power_pct', 'label': 'Power Weapon %', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'avg_life', 'label': 'Avg Life', 'higher_is_better': True, 'is_medal': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'betrayals_pg', 'label': 'Betrayals/Game', 'higher_is_better': False, 'is_medal': False, 'format': lambda v: format_value(v, 2)},
+        {'key': 'suicides_pg', 'label': 'Suicides/Game', 'higher_is_better': False, 'is_medal': False, 'format': lambda v: format_value(v, 2)},
+    ]
+
+    medal_metric_defs = [
+        {'key': 'medals_pg', 'label': 'Medals/Game', 'higher_is_better': True, 'is_medal': True, 'format': lambda v: format_value(v, 2)}
+    ]
+
+    for col in compare_medal_cols:
+        label = f"{col.replace('medal_', '').replace('_', ' ').title()} Medals/Game"
+        medal_metric_defs.append({
+            'key': col,
+            'label': label,
+            'higher_is_better': True,
+            'is_medal': True,
+            'format': lambda v: format_value(v, 2)
+        })
+
+    norm_cache = {}
+
+    def get_norm(metric_key: str, higher_is_better: bool = True) -> dict:
+        cache_key = (metric_key, higher_is_better)
+        if cache_key in norm_cache:
+            return norm_cache[cache_key]
+        values = {player: safe_float(player_metrics[player].get(metric_key, 0)) for player in player_metrics}
+        if not values:
+            norm_cache[cache_key] = {player: 0.5 for player in player_metrics}
+            return norm_cache[cache_key]
+        min_val = min(values.values())
+        max_val = max(values.values())
+        if max_val == min_val:
+            norm_cache[cache_key] = {player: 0.5 for player in values}
+            return norm_cache[cache_key]
+        if higher_is_better:
+            norm_cache[cache_key] = {
+                player: (value - min_val) / (max_val - min_val) for player, value in values.items()
+            }
+        else:
+            norm_cache[cache_key] = {
+                player: (max_val - value) / (max_val - min_val) for player, value in values.items()
+            }
+        return norm_cache[cache_key]
+
+    title_order = ['Objective Player', 'Slayer', 'Support', 'Sniper', 'Survivor', 'All-Rounder']
+    title_score_fns = {
+        'Objective Player': lambda player: (
+            0.6 * get_norm('obj_score_pg')[player]
+            + 0.2 * get_norm('callouts_pg')[player]
+            + 0.2 * get_norm('win_pct')[player]
+        ),
+        'Slayer': lambda player: (
+            0.35 * get_norm('kills_pg')[player]
+            + 0.25 * get_norm('dmg_per_min')[player]
+            + 0.2 * get_norm('kda')[player]
+            + 0.2 * get_norm('dmg_diff_pg')[player]
+        ),
+        'Support': lambda player: (
+            0.5 * get_norm('assists_pg')[player]
+            + 0.3 * get_norm('callouts_pg')[player]
+            + 0.2 * get_norm('win_pct')[player]
+        ),
+        'Sniper': lambda player: (
+            0.35 * get_norm('accuracy')[player]
+            + 0.25 * get_norm('headshot_pct')[player]
+            + 0.2 * get_norm('medal_Snipe')[player]
+            + 0.2 * get_norm('medal_No_Scope')[player]
+        ),
+        'Survivor': lambda player: (
+            0.5 * get_norm('avg_life')[player]
+            + 0.3 * get_norm('kda')[player]
+            + 0.2 * get_norm('deaths_pg', False)[player]
+        ),
+        'All-Rounder': lambda player: (
+            get_norm('kills_pg')[player]
+            + get_norm('assists_pg')[player]
+            + get_norm('accuracy')[player]
+            + get_norm('obj_score_pg')[player]
+            + get_norm('win_pct')[player]
+            + get_norm('kda')[player]
+        ) / 6
+    }
+
+    writeup_metric_defs = [
+        {'key': 'kills_pg', 'label': 'Kills/Game', 'higher_is_better': True, 'format': lambda v: format_value(v, 1)},
+        {'key': 'assists_pg', 'label': 'Assists/Game', 'higher_is_better': True, 'format': lambda v: format_value(v, 1)},
+        {'key': 'kda', 'label': 'KDA', 'higher_is_better': True, 'format': lambda v: format_value(v, 2)},
+        {'key': 'accuracy', 'label': 'Accuracy', 'higher_is_better': True, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'dmg_per_min', 'label': 'Damage/Min', 'higher_is_better': True, 'format': lambda v: format_value(v, 0)},
+        {'key': 'dmg_diff_pg', 'label': 'Damage Diff/Game', 'higher_is_better': True, 'format': lambda v: format_signed(v, 0)},
+        {'key': 'obj_score_pg', 'label': 'Objective Score/Game', 'higher_is_better': True, 'format': lambda v: format_signed(v, 1)},
+        {'key': 'callouts_pg', 'label': 'Callouts/Game', 'higher_is_better': True, 'format': lambda v: format_value(v, 1)},
+        {'key': 'avg_life', 'label': 'Avg Life', 'higher_is_better': True, 'format': lambda v: format_value(v, 1)},
+        {'key': 'medals_pg', 'label': 'Medals/Game', 'higher_is_better': True, 'format': lambda v: format_value(v, 2)},
+        {'key': 'headshot_pct', 'label': 'Headshot %', 'higher_is_better': True, 'format': lambda v: format_value(v, 1, '%')},
+        {'key': 'deaths_pg', 'label': 'Deaths/Game', 'higher_is_better': False, 'format': lambda v: format_value(v, 1)},
+        {'key': 'suicides_pg', 'label': 'Suicides/Game', 'higher_is_better': False, 'format': lambda v: format_value(v, 2)},
+        {'key': 'betrayals_pg', 'label': 'Betrayals/Game', 'higher_is_better': False, 'format': lambda v: format_value(v, 2)}
+    ]
+
+    def gap_score(values: list[float], value: float, higher_is_better: bool, is_best: bool) -> float:
+        if len(values) < 2:
+            return 0
+        sorted_vals = sorted(values, reverse=higher_is_better)
+        if is_best:
+            return abs(value - sorted_vals[1])
+        return abs(sorted_vals[-2] - value)
+
+    def build_extremes(metric_defs: list[dict]) -> tuple[dict, dict, dict, dict]:
+        strengths_strict = {player: [] for player in player_metrics}
+        strengths_tied = {player: [] for player in player_metrics}
+        weaknesses_strict = {player: [] for player in player_metrics}
+        weaknesses_tied = {player: [] for player in player_metrics}
+
+        for metric in metric_defs:
+            values = {player: safe_float(player_metrics[player].get(metric['key'], 0)) for player in player_metrics}
+            value_list = list(values.values())
+            if not value_list:
+                continue
+            max_val = max(value_list)
+            min_val = min(value_list)
+            if max_val == min_val:
+                continue
+
+            if metric['higher_is_better']:
+                best_players = [p for p, v in values.items() if v == max_val]
+                worst_players = [p for p, v in values.items() if v == min_val]
+            else:
+                best_players = [p for p, v in values.items() if v == min_val]
+                worst_players = [p for p, v in values.items() if v == max_val]
+
+            for player in best_players:
+                score = gap_score(value_list, values[player], metric['higher_is_better'], True)
+                label = f"{metric['label']} ({metric['format'](values[player])})"
+                entry = {'key': metric['key'], 'label': label, 'score': score, 'is_medal': metric['is_medal'], 'tier': 'extreme'}
+                if len(best_players) == 1:
+                    strengths_strict[player].append(entry)
+                else:
+                    strengths_tied[player].append(entry)
+
+            for player in worst_players:
+                score = gap_score(value_list, values[player], metric['higher_is_better'], False)
+                label = f"{metric['label']} ({metric['format'](values[player])})"
+                entry = {'key': metric['key'], 'label': label, 'score': score, 'is_medal': metric['is_medal'], 'tier': 'extreme'}
+                if len(worst_players) == 1:
+                    weaknesses_strict[player].append(entry)
+                else:
+                    weaknesses_tied[player].append(entry)
+
+        return strengths_strict, strengths_tied, weaknesses_strict, weaknesses_tied
+
+    def build_relative_candidates(metric_defs: list[dict]) -> tuple[dict, dict]:
+        strength_candidates = {player: [] for player in player_metrics}
+        weakness_candidates = {player: [] for player in player_metrics}
+
+        for metric in metric_defs:
+            values = {player: safe_float(player_metrics[player].get(metric['key'], 0)) for player in player_metrics}
+            value_list = list(values.values())
+            if not value_list:
+                continue
+            max_val = max(value_list)
+            min_val = min(value_list)
+            if max_val == min_val:
+                continue
+
+            for player, value in values.items():
+                if metric['higher_is_better']:
+                    strength_score = (value - min_val) / (max_val - min_val)
+                else:
+                    strength_score = (max_val - value) / (max_val - min_val)
+                weakness_score = 1 - strength_score
+                label = f"{metric['label']} ({metric['format'](value)})"
+                strength_candidates[player].append({
+                    'key': metric['key'],
+                    'label': label,
+                    'score': strength_score,
+                    'is_medal': metric['is_medal'],
+                    'tier': 'relative'
+                })
+                weakness_candidates[player].append({
+                    'key': metric['key'],
+                    'label': label,
+                    'score': weakness_score,
+                    'is_medal': metric['is_medal'],
+                    'tier': 'relative'
+                })
+
+        return strength_candidates, weakness_candidates
+
+    def build_writeup_candidates(metric_defs: list[dict]) -> tuple[dict, dict]:
+        strength_candidates = {player: [] for player in player_metrics}
+        weakness_candidates = {player: [] for player in player_metrics}
+
+        for metric in metric_defs:
+            values = {player: safe_float(player_metrics[player].get(metric['key'], 0)) for player in player_metrics}
+            if not values:
+                continue
+            max_val = max(values.values())
+            min_val = min(values.values())
+            if max_val == min_val:
+                continue
+            norms = get_norm(metric['key'], metric['higher_is_better'])
+            for player, value in values.items():
+                entry = {
+                    'key': metric['key'],
+                    'label': metric['label'],
+                    'value': value,
+                    'score': norms[player],
+                    'format': metric['format']
+                }
+                strength_candidates[player].append(entry)
+                weakness_candidates[player].append(entry)
+
+        return strength_candidates, weakness_candidates
+
+    def select_top_entries(primary: list[dict], fallback: list[dict], extra: list[dict], target_count: int = 5) -> list[dict]:
+        primary_sorted = sorted(primary, key=lambda x: x['score'], reverse=True)
+        fallback_sorted = sorted(fallback, key=lambda x: x['score'], reverse=True)
+        extra_sorted = sorted(extra, key=lambda x: x['score'], reverse=True)
+        selected = []
+        used_keys = set()
+        for entry in primary_sorted:
+            if len(selected) >= target_count:
+                break
+            selected.append(entry)
+            used_keys.add(entry['key'])
+        for entry in fallback_sorted:
+            if len(selected) >= target_count:
+                break
+            if entry['key'] in used_keys:
+                continue
+            selected.append(entry)
+            used_keys.add(entry['key'])
+        for entry in extra_sorted:
+            if len(selected) >= target_count:
+                break
+            if entry['key'] in used_keys:
+                continue
+            selected.append(entry)
+            used_keys.add(entry['key'])
+        return selected[:target_count]
+
+    def select_writeup_entries(candidates: list[dict], count: int, reverse: bool, exclude_keys: set[str] | None = None) -> list[dict]:
+        exclude_keys = exclude_keys or set()
+        selected = []
+        for entry in sorted(candidates, key=lambda x: x['score'], reverse=reverse):
+            if entry['key'] in exclude_keys:
+                continue
+            selected.append(entry)
+            exclude_keys.add(entry['key'])
+            if len(selected) >= count:
+                break
+        return selected
+
+    def join_phrases(items: list[str]) -> str:
+        if not items:
+            return ''
+        if len(items) == 1:
+            return items[0]
+        if len(items) == 2:
+            return f"{items[0]} and {items[1]}"
+        return f"{', '.join(items[:-1])}, and {items[-1]}"
+
+    def build_stat_span(entry: dict, css_class: str) -> str:
+        label_text = html.escape(entry['label'])
+        value_text = html.escape(entry['format'](entry['value']))
+        return f"<span class='{css_class}'>{label_text} {value_text}</span>"
+
+    stat_strengths_strict, stat_strengths_tied, stat_weaknesses_strict, stat_weaknesses_tied = build_extremes(stat_metric_defs)
+    medal_strengths_strict, medal_strengths_tied, medal_weaknesses_strict, medal_weaknesses_tied = build_extremes(medal_metric_defs)
+    stat_relative_strengths, stat_relative_weaknesses = build_relative_candidates(stat_metric_defs)
+    medal_relative_strengths, medal_relative_weaknesses = build_relative_candidates(medal_metric_defs)
+    writeup_strength_candidates, writeup_weakness_candidates = build_writeup_candidates(writeup_metric_defs)
+
     player_profiles = {}
-    
     for player, metrics in player_metrics.items():
-        strength_candidates = []
-        weakness_candidates = []
-        
-        # Helper to compare this player's value to all others
-        def get_rank(metric_name):
-            values = [m[metric_name] for m in player_metrics.values()]
-            my_value = metrics[metric_name]
-            sorted_vals = sorted(values, reverse=True)
-            return sorted_vals.index(my_value) + 1, my_value, sorted_vals
-        
-        # Analyze each metric comparatively
-        rank, val, all_vals = get_rank('kills_pg')
-        if rank <= 2 and val > 0:
-            strength_candidates.append((f"Lethal ({val:.1f} kills/game)", (val / all_vals[2] - 1) * 100 if len(all_vals) > 2 else 50))
-        elif rank >= len(all_vals) - 1 and len(all_vals) >= 3:
-            weakness_candidates.append((f"Needs More Kills ({val:.1f}/game)", (all_vals[len(all_vals)//2] - val) * 10))
-        
-        rank, val, all_vals = get_rank('kd_ratio')
-        if rank <= 2 and val > 1.0:
-            strength_candidates.append((f"K/D Ratio ({val:.2f})", (val - 1) * 50))
-        elif rank >= len(all_vals) - 1:
-            weakness_candidates.append((f"K/D Issues ({val:.2f})", (all_vals[len(all_vals)//2] - val) * 30))
-        
-        rank, val, all_vals = get_rank('accuracy')
-        if rank <= 2 and val > 40:
-            strength_candidates.append((f"Sharp Shot ({val:.1f}% accuracy)", val - 40))
-        elif rank >= len(all_vals) - 1 and val < 45:
-            weakness_candidates.append((f"Accuracy Needs Work ({val:.1f}%)", 45 - val))
-        
-        rank, val, all_vals = get_rank('win_pct')
-        if rank <= 2:
-            strength_candidates.append((f"Winner ({val:.1f}% win rate)", val - 50))
-        elif rank >= len(all_vals) - 1:
-            weakness_candidates.append((f"Losing Record ({val:.1f}%)", 50 - val))
-        
-        rank, val, all_vals = get_rank('dmg_diff_pg')
-        if rank <= 2 and val > 0:
-            strength_candidates.append((f"Dominant (+{val:.0f} dmg diff/game)", val / 10))
-        elif rank >= len(all_vals) - 1 and val < 0:
-            weakness_candidates.append((f"Damage Deficit ({val:+.0f}/game)", abs(val) / 10))
-        
-        rank, val, all_vals = get_rank('dmg_per_min')
-        if rank <= 2:
-            strength_candidates.append((f"Aggressive ({val:.0f} dmg/min)", val / 10))
-        
-        rank, val, all_vals = get_rank('headshot_pct')
-        if rank <= 2 and val > 15:
-            strength_candidates.append((f"Precision Aim ({val:.0f}% headshots)", val - 15))
-        
-        rank, val, all_vals = get_rank('snipe_pg')
-        if rank <= 2 and val > 0.05:
-            strength_candidates.append((f"Sniper ({val:.2f} snipes/game)", val * 100))
-        elif rank >= len(all_vals) - 1:
-            weakness_candidates.append((f"Lacks Sniper Skills ({val:.2f}/game)", (max(all_vals) - val) * 50))
-        
-        rank, val, all_vals = get_rank('ninja_pg')
-        if rank <= 2 and val > 0.02:
-            strength_candidates.append((f"Ninja Assassin ({val:.2f} ninjas/game)", val * 150))
-        elif rank >= len(all_vals) - 1:
-            weakness_candidates.append((f"No Stealth Kills ({val:.2f}/game)", (max(all_vals) - val) * 100))
-        
-        rank, val, all_vals = get_rank('no_scope_pg')
-        if rank <= 2 and val > 0.02:
-            strength_candidates.append((f"Quickscoper ({val:.2f} no-scopes/game)", val * 150))
-        elif rank >= len(all_vals) - 1 and max(all_vals) > 0.05:
-            weakness_candidates.append((f"Rarely No-Scopes ({val:.2f}/game)", (max(all_vals) - val) * 100))
-        
-        rank, val, all_vals = get_rank('spree_pg')
-        if rank <= 2 and val > 0.05:
-            strength_candidates.append((f"Killing Machine ({val:.2f} sprees/game)", val * 100))
-        elif rank >= len(all_vals) - 1 and max(all_vals) > 0.15:
-            weakness_candidates.append((f"No Momentum ({val:.2f} sprees/game)", (max(all_vals) - val) * 80))
-        
-        rank, val, all_vals = get_rank('multi_pg')
-        if rank <= 2 and val > 0.3:
-            strength_candidates.append((f"Multi-Kill Master ({val:.2f} multi-kills/game)", val * 50))
-        elif rank >= len(all_vals) - 1:
-            weakness_candidates.append((f"Multi-Kill Weakness ({val:.2f}/game)", (max(all_vals) - val) * 30))
-        
-        rank, val, all_vals = get_rank('avg_life')
-        if rank <= 2 and val > 12:
-            strength_candidates.append((f"Survivability ({val:.1f}s avg life)", val - 10))
-        elif rank >= len(all_vals) - 1 and val < 18:
-            weakness_candidates.append((f"Survival Issues ({val:.1f}s avg life)", 18 - val))
-        
-        rank, val, all_vals = get_rank('assists_pg')
-        if rank <= 2:
-            strength_candidates.append((f"Team Player ({val:.1f} assists/game)", val * 5))
-        
-        rank, val, all_vals = get_rank('medals_pg')
-        if rank <= 2:
-            strength_candidates.append((f"Medal Magnet ({val:.1f} medals/game)", val - 5))
-        
-        rank, val, all_vals = get_rank('grenade_pct')
-        if rank <= 2 and val > 8:
-            strength_candidates.append((f"Grenade Mastery ({val:.0f}% kills)", val - 8))
-        
-        rank, val, all_vals = get_rank('power_pct')
-        if rank <= 2 and val > 12:
-            strength_candidates.append((f"Power Weapon Control ({val:.0f}% kills)", val - 12))
-        
-        rank, val, all_vals = get_rank('deaths_pg')
-        if rank >= len(all_vals) - 1:  # Most deaths is bad
-            weakness_candidates.append((f"Reckless ({val:.1f} deaths/game)", val / 5))
-        
-        rank, val, all_vals = get_rank('melee_pct')
-        if rank <= 2 and val > 10:
-            strength_candidates.append((f"Melee Expert ({val:.0f}% kills)", val - 10))
-        elif rank >= len(all_vals) - 1 and val < 8:
-            weakness_candidates.append((f"Avoids Melee ({val:.0f}%)", 10 - val))
-        
-        # Sort and take top by score
-        strength_candidates.sort(key=lambda x: x[1], reverse=True)
-        weakness_candidates.sort(key=lambda x: x[1], reverse=True)
-        
-        # Ensure exactly 5 strengths and 5 weaknesses
-        strengths = [s[0] for s in strength_candidates[:5]]
-        weaknesses = [w[0] for w in weakness_candidates[:5]]
-        
-        # Pad to 5 if needed with unique fallbacks
-        fallback_strengths = [
-            f"Consistent Fragger ({metrics['kills_pg']:.1f} kills/game)" if metrics['kills_pg'] >= 10 else None,
-            f"Reliable Teammate ({metrics['assists_pg']:.1f} assists/game)" if metrics['assists_pg'] >= 5 else None,
-            f"Decent Accuracy ({metrics['accuracy']:.1f}%)" if metrics['accuracy'] >= 40 else None,
-            f"Positive KDA ({metrics['kda']:.2f})" if metrics['kda'] >= 1.5 else None,
-            f"Plays Regularly ({metrics['games']} games tracked)",
-            "Active Contributor",
-            "Team Member"
-        ]
-        fallback_strengths = [s for s in fallback_strengths if s and s not in strengths]
-        
-        fallback_weaknesses = [
-            f"High Death Count ({metrics['deaths_pg']:.1f}/game)" if metrics['deaths_pg'] >= 16 else None,
-            f"Could Improve Accuracy ({metrics['accuracy']:.1f}%)" if metrics['accuracy'] < 45 else None,
-            f"Room for More Teamwork ({metrics['assists_pg']:.1f} assists/game)" if metrics['assists_pg'] < 6 else None,
-            f"Below 1.0 K/D ({metrics['kd_ratio']:.2f})" if metrics['kd_ratio'] < 1.0 else None,
-            f"Needs More Kills ({metrics['kills_pg']:.1f}/game)" if metrics['kills_pg'] < 16 else None,
-            "Room for Growth",
-            "Minor Adjustments Needed"
-        ]
-        fallback_weaknesses = [w for w in fallback_weaknesses if w and w not in weaknesses]
-        
-        while len(strengths) < 5 and fallback_strengths:
-            strengths.append(fallback_strengths.pop(0))
-                
-        while len(weaknesses) < 5 and fallback_weaknesses:
-            weaknesses.append(fallback_weaknesses.pop(0))
-        
+        strengths_entries = select_top_entries(
+            stat_strengths_strict[player],
+            stat_strengths_tied[player],
+            stat_relative_strengths[player]
+        )
+        weakness_entries = select_top_entries(
+            stat_weaknesses_strict[player],
+            stat_weaknesses_tied[player],
+            stat_relative_weaknesses[player]
+        )
+        medal_strengths_entries = select_top_entries(
+            medal_strengths_strict[player],
+            medal_strengths_tied[player],
+            medal_relative_strengths[player]
+        )
+        medal_weaknesses_entries = select_top_entries(
+            medal_weaknesses_strict[player],
+            medal_weaknesses_tied[player],
+            medal_relative_weaknesses[player]
+        )
+
+        title_scores = {name: score_fn(player) for name, score_fn in title_score_fns.items()}
+        title = sorted(title_scores.items(), key=lambda item: (-item[1], title_order.index(item[0])))[0][0]
+        article = 'an' if title[:1].lower() in 'aeiou' else 'a'
+
+        top_medal_label = ''
+        top_medal_value = 0.0
+        for col in compare_medal_cols:
+            value = safe_float(metrics.get(col, 0))
+            if value > top_medal_value:
+                top_medal_value = value
+                top_medal_label = col.replace('medal_', '').replace('_', ' ').title()
+
+        safe_player = html.escape(str(player))
+        overview_sentence = (
+            f"{safe_player} is {article} {title.lower()} averaging "
+            f"{format_float(metrics['kills_pg'], 1)} kills/game, "
+            f"{format_float(metrics['assists_pg'], 1)} assists/game, "
+            f"and a {format_float(metrics['kda'], 2)} KDA with "
+            f"{format_float(metrics['win_pct'], 1)}% wins, while objective score sits at "
+            f"{format_signed(metrics['obj_score_pg'], 1)} per game."
+        )
+
+        writeup_strength_entries = select_writeup_entries(
+            writeup_strength_candidates[player],
+            2,
+            True
+        )
+        writeup_strength_keys = {entry['key'] for entry in writeup_strength_entries}
+        writeup_weakness_entries = select_writeup_entries(
+            writeup_weakness_candidates[player],
+            2,
+            False,
+            writeup_strength_keys
+        )
+
+        strength_bits = [build_stat_span(entry, 'stat-good') for entry in writeup_strength_entries]
+        weakness_bits = [build_stat_span(entry, 'stat-bad') for entry in writeup_weakness_entries]
+        strength_phrase = join_phrases(strength_bits)
+        weakness_phrase = join_phrases(weakness_bits)
+
+        if strength_phrase:
+            strength_intro = f"Strengths show up in {strength_phrase}"
+        else:
+            strength_intro = "Strengths are spread across the stat line"
+
+        if top_medal_label:
+            safe_medal_label = html.escape(top_medal_label)
+            medal_clause = f", led by {safe_medal_label} ({format_float(top_medal_value, 2)}/game)"
+        else:
+            medal_clause = ""
+
+        strength_sentence = (
+            f"{strength_intro}; medal pace is {format_float(metrics['medals_pg'], 2)} per game"
+            f"{medal_clause}, and accuracy sits at {format_float(metrics['accuracy'], 1)}% with "
+            f"{format_float(metrics['headshot_pct'], 1)}% headshots."
+        )
+
+        if weakness_phrase:
+            improve_sentence = (
+                f"Areas to sharpen include {weakness_phrase}, so tightening those should lift consistency."
+            )
+        else:
+            improve_sentence = (
+                "Areas to sharpen are minimal right now, but small gains in damage output and accuracy "
+                "could lift consistency."
+            )
+
+        def format_entry(entry: dict, is_strength: bool) -> str:
+            if entry.get('tier') == 'relative':
+                prefix = 'Strong' if is_strength else 'Weak'
+            else:
+                prefix = 'Best' if is_strength else 'Worst'
+            return f"{prefix} {entry['label']}"
+
+        strengths = [format_entry(item, True) for item in strengths_entries]
+        weaknesses = [format_entry(item, False) for item in weakness_entries]
+        medal_strengths = [format_entry(item, True) for item in medal_strengths_entries]
+        medal_weaknesses = [format_entry(item, False) for item in medal_weaknesses_entries]
+
         player_profiles[player] = {
             'games': metrics['games'],
             'win_pct': metrics['win_pct'],
@@ -5595,9 +5882,13 @@ def build_player_summary(df: pd.DataFrame) -> dict:
             'dmg_per_min': metrics['dmg_per_min'],
             'medals_pg': metrics['medals_pg'],
             'strengths': strengths,
-            'weaknesses': weaknesses
+            'weaknesses': weaknesses,
+            'medal_strengths': medal_strengths,
+            'medal_weaknesses': medal_weaknesses,
+            'title': title,
+            'writeup': f"{overview_sentence} {strength_sentence} {improve_sentence}"
         }
-    
+
     return player_profiles
 @app.route('/match/<match_id>')
 def match(match_id):
